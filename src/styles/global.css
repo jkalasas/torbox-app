@@ -1,0 +1,112 @@
+/* ── TorBox Design Tokens ─────────────────────────────────────── */
+/* Light mode (default, overridden below for dark)                */
+
+:root {
+  /* Surface */
+  --bg: oklch(1 0 0);
+  --surface: oklch(0.97 0 0);
+  --surface-elevated: oklch(1 0 0);
+  --border: oklch(0.88 0 0);
+  --border-strong: oklch(0.75 0 0);
+
+  /* Ink */
+  --ink: oklch(0.15 0 0);
+  --ink-muted: oklch(0.50 0 0);
+
+  /* Brand */
+  --primary: oklch(0.42 0.161 260);
+  --primary-hover: oklch(0.38 0.165 260);
+  --primary-text: oklch(0.98 0 0);
+  --accent: oklch(0.48 0.14 195);
+
+  /* Semantic */
+  --success: oklch(0.45 0.14 155);
+  --warning: oklch(0.50 0.14 80);
+  --danger: oklch(0.45 0.18 25);
+
+  /* Typography */
+  --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans',
+    Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas,
+    'Liberation Mono', monospace;
+
+  /* Radii */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+}
+
+/* ── Dark mode ───────────────────────────────────────────────── */
+
+[data-mantine-color-scheme='dark'] {
+  --bg: oklch(0.08 0 0);
+  --surface: oklch(0.12 0 0);
+  --surface-elevated: oklch(0.16 0 0);
+  --border: oklch(0.20 0 0);
+  --border-strong: oklch(0.28 0 0);
+
+  --ink: oklch(0.92 0 0);
+  --ink-muted: oklch(0.55 0 0);
+
+  --primary: oklch(0.52 0.17 260);
+  --primary-hover: oklch(0.56 0.17 260);
+  --accent: oklch(0.55 0.14 195);
+
+  --success: oklch(0.50 0.14 155);
+  --warning: oklch(0.55 0.14 80);
+  --danger: oklch(0.50 0.18 25);
+}
+
+/* ── Base ─────────────────────────────────────────────────────── */
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--bg);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Prevent overscroll bounce on mobile (native app feel) */
+  overscroll-behavior: none;
+}
+
+/* ── Mobile safe areas ───────────────────────────────────────── */
+
+@supports (padding-top: env(safe-area-inset-top)) {
+  body {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+}
+
+/* ── Touch-friendly defaults ─────────────────────────────────── */
+
+@media (pointer: coarse) {
+  /* Minimum tap target enforcement for interactive elements */
+  button,
+  [role='button'],
+  a,
+  input,
+  select,
+  textarea {
+    min-height: 44px;
+  }
+
+  /* Suppress text selection on interactive surfaces */
+  [data-interactive] {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+}
+
+/* ── Reduced motion ──────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
