@@ -17,11 +17,13 @@
     "vitest:watch": "vitest",
     "test": "bun run typecheck && bun run format:test && bun run lint && bun run vitest && bun run build",
     "storybook": "storybook dev -p 6006",
-    "storybook:build": "storybook build"
+    "storybook:build": "storybook build",
+    "tauri": "tauri"
   },
   "dependencies": {
     "@mantine/core": "9.3.1",
     "@mantine/hooks": "9.3.1",
+    "@tauri-apps/api": "^2.11.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.9.4"
@@ -30,6 +32,7 @@
     "@storybook/addon-themes": "^10.0.0",
     "@storybook/react": "^10.0.0",
     "@storybook/react-vite": "^10.0.0",
+    "@tauri-apps/cli": "^2.11.2",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",
