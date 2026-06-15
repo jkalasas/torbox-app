@@ -10,7 +10,7 @@ This template comes with the following features:
 - [Vitest](https://vitest.dev/) setup with [React Testing Library](https://testing-library.com/docs/react-testing-library/intro)
 - Oxlint setup for TypeScript and React sources
 
-## npm scripts
+## Bun scripts
 
 ## Build and dev scripts
 
@@ -25,7 +25,7 @@ This template comes with the following features:
 - `format:test` – checks files with oxfmt
 - `vitest` – runs vitest tests
 - `vitest:watch` – starts vitest watch
-- `test` – runs `vitest`, `format:test`, `lint` and `typecheck` scripts
+- `test` – runs `typecheck`, `format:test`, `lint`, `vitest`, and `build` scripts
 
 ### Other scripts
 
