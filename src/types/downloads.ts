@@ -65,3 +65,13 @@ export type DownloadTab = 'cloud' | 'local';
 
 /** Cloud sub-tab */
 export type CloudSubTab = 'torrents' | 'web';
+
+/** Frontend-facing settings synchronized with Rust */
+export interface DownloadSettings {
+  api_key: string;
+  download_dir: string;
+  max_concurrent: number;
+  bandwidth_limit: number; // KB/s, 0 = unlimited
+  notify_on_complete: boolean;
+  open_folder_on_complete: boolean;
+}
