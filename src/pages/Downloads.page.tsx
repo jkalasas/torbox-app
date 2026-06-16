@@ -257,6 +257,7 @@ export function DownloadsPage() {
             setSettingsOpen(true);
             return;
           }
+          setAddModalOpen(false);
           void addDownload(name, type, url);
         }}
       />
