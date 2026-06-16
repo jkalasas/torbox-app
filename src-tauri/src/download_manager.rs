@@ -23,25 +23,28 @@ pub struct DownloadManager {
 impl DownloadManager {
     pub fn new(
         persistence: Arc<Persistence>,
-        max_concurrent: u32,
-        bandwidth_limit_kibps: u64,
+        initial_settings: DownloadSettings,
     ) -> Arc<Self> {
-        let limiter = Arc::new(BandwidthLimiter::new(bandwidth_limit_kibps));
-        let queue = Arc::new(QueueManager::new(max_concurrent));
+        let limiter = Arc::new(BandwidthLimiter::new(initial_settings.bandwidth_limit));
+        let queue = Arc::new(QueueManager::new(initial_settings.max_concurrent));
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(300))
             .build()
             .expect("Failed to build HTTP client");
-        let chunked = Arc::new(ChunkedDownloader::new(persistence.clone(), limiter.clone(), client.clone()));
+        let chunked = Arc::new(ChunkedDownloader::new(
+            persistence.clone(),
+            limiter.clone(),
+            client.clone(),
+        ));
 
         Arc::new(Self {
             persistence,
             limiter,
             queue,
             chunked,
-            client,
             active_downloads: Arc::new(Mutex::new(HashMap::new())),
-            settings: Arc::new(RwLock::new(DownloadSettings::default())),
+            settings: Arc::new(RwLock::new(initial_settings)),
+            client,
         })
     }
 

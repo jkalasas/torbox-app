@@ -1,0 +1,13 @@
+[[permission]]
+identifier = "local-downloads"
+description = "Allow local download manager commands"
+commands.allow = [
+    "start_download",
+    "pause_download",
+    "resume_download",
+    "cancel_download",
+    "remove_download",
+    "list_downloads",
+    "get_settings",
+    "update_settings",
+]

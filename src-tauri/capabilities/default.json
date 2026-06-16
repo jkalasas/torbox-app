@@ -9,6 +9,7 @@
     "core:default",
     "store:default",
     "sql:default",
+    "local-downloads",
     {
       "identifier": "http:default",
       "allow": [
