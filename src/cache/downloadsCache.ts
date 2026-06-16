@@ -91,6 +91,7 @@ function rowToDownload(row: any): CloudDownload {
     seeders: row.seeders != null ? Number(row.seeders) : undefined,
     peers: row.peers != null ? Number(row.peers) : undefined,
     fileCount: Number(row.file_count),
+    files: [],
     addedAt: new Date(row.added_at as string),
   };
 }

@@ -33,6 +33,10 @@ export interface DownloadRowProps {
   onRemove?: (id: string) => void;
   onRetry?: (id: string) => void;
   onDownloadToDevice?: (id: string) => void;
+  /** Open file list for cached / completed downloads */
+  onOpenFiles?: (id: string) => void;
+  /** Whether files are available (cached or complete) */
+  hasFiles?: boolean;
 }
 
 function getDotClass(status: DownloadRowProps['status'], paused: boolean): string {
@@ -86,6 +90,8 @@ export function DownloadRow({
   onRemove,
   onRetry,
   onDownloadToDevice,
+  onOpenFiles,
+  hasFiles,
 }: DownloadRowProps) {
   const isActive = status === 'downloading' && !paused;
   const isComplete = status === 'cached' || status === 'complete';
@@ -95,7 +101,25 @@ export function DownloadRow({
   const progressFillClass = getProgressFillClass(status);
 
   return (
-    <div className={classes.row} data-interactive>
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
+    <div
+      className={`${classes.row}${hasFiles ? ` ${classes.rowClickable}` : ''}`}
+      data-interactive
+      onClick={hasFiles && onOpenFiles ? () => onOpenFiles(id) : undefined}
+      onKeyDown={
+        hasFiles && onOpenFiles
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onOpenFiles(id);
+              }
+            }
+          : undefined
+      }
+      role={hasFiles ? 'button' : undefined}
+      tabIndex={hasFiles ? 0 : undefined}
+      aria-label={hasFiles ? `View files for ${name}` : undefined}
+    >
       {/* Status dot */}
       <div className={`${classes.dot} ${dotClass}`} aria-hidden="true" />
 
@@ -213,7 +237,14 @@ export function DownloadRow({
       </div>
 
       {/* Action buttons (hidden until hover on desktop) */}
-      <div className={classes.actions} role="toolbar" aria-label={`Actions for ${name}`}>
+      {/* eslint-disable-next-line jsx-a11y/interactive-supports-focus */}
+      <div
+        className={classes.actions}
+        role="toolbar"
+        aria-label={`Actions for ${name}`}
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+      >
         {isActive && onPause && (
           <Tooltip label="Pause" withArrow>
             <ActionIcon

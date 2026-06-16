@@ -23,6 +23,8 @@ export interface DownloadListProps {
   emptyTitle?: string;
   emptyDescription?: string;
   onAdd?: () => void;
+  /** Open file list for a cached / completed download */
+  onOpenFiles?: (id: string) => void;
 }
 
 function mapCloudToRow(d: CloudDownload): DownloadRowProps {
@@ -70,6 +72,7 @@ export function DownloadList({
   emptyTitle = 'No downloads yet',
   emptyDescription = 'Add a magnet link or torrent file to get started.',
   onAdd,
+  onOpenFiles,
 }: DownloadListProps) {
   if (loading) {
     return (
@@ -112,6 +115,7 @@ export function DownloadList({
       onRemove={onRemove}
       onRetry={onRetry}
       onDownloadToDevice={onDownloadToDevice}
+      onOpenFiles={onOpenFiles}
     />
   );
 }
@@ -123,6 +127,7 @@ function VirtualizedList({
   onRemove,
   onRetry,
   onDownloadToDevice,
+  onOpenFiles,
 }: {
   items: DownloadRowProps[];
   onPause?: (id: string) => void;
@@ -130,6 +135,7 @@ function VirtualizedList({
   onRemove?: (id: string) => void;
   onRetry?: (id: string) => void;
   onDownloadToDevice?: (id: string) => void;
+  onOpenFiles?: (id: string) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -171,6 +177,8 @@ function VirtualizedList({
                 onRemove={onRemove}
                 onRetry={onRetry}
                 onDownloadToDevice={onDownloadToDevice}
+                onOpenFiles={onOpenFiles}
+                hasFiles={item.status === 'cached' || item.status === 'complete'}
               />
             </div>
           );

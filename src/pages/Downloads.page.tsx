@@ -6,12 +6,14 @@ import { DownloadList } from '../components/DownloadList/DownloadList';
 import { DownloadTabs } from '../components/DownloadTabs/DownloadTabs';
 import { DownloadToolbar } from '../components/DownloadToolbar/DownloadToolbar';
 import { ErrorBanner } from '../components/ErrorBanner/ErrorBanner';
+import { FileListModal } from '../components/FileListModal/FileListModal';
 import { SettingsModal } from '../components/SettingsModal/SettingsModal';
 import { StatusBar } from '../components/StatusBar/StatusBar';
 import { useDownloads } from '../hooks/useDownloads';
 import { useLocalTransfers } from '../hooks/useLocalTransfers';
 import { useSettings } from '../hooks/useSettings';
 import type {
+  CloudDownload,
   CloudDownloadStatus,
   CloudSubTab,
   DownloadTab,
@@ -29,6 +31,7 @@ export function DownloadsPage() {
   const [statusFilter, setStatusFilter] = useState<
     CloudDownloadStatus | LocalTransferStatus | 'all'
   >('all');
+  const [fileListDownload, setFileListDownload] = useState<CloudDownload | null>(null);
 
   const { savedApiKey, setApiKey, saveApiKey, saving, saved, ready } = useSettings();
 
@@ -237,6 +240,12 @@ export function DownloadsPage() {
             ? () => setSettingsOpen(true)
             : () => setAddModalOpen(true)
         }
+        onOpenFiles={(id) => {
+          const download = downloads.find((d) => d.id === id);
+          if (download && download.files.length > 0) {
+            setFileListDownload(download);
+          }
+        }}
       />
 
       {/* Status bar */}
@@ -260,6 +269,17 @@ export function DownloadsPage() {
           setAddModalOpen(false);
           void addDownload(name, type, url);
         }}
+      />
+
+      {/* File list modal */}
+      <FileListModal
+        opened={fileListDownload !== null}
+        onClose={() => setFileListDownload(null)}
+        downloadName={fileListDownload?.name ?? ''}
+        files={fileListDownload?.files ?? []}
+        apiKey={savedApiKey}
+        downloadType={fileListDownload?.type ?? 'torrent'}
+        downloadId={fileListDownload ? Number(fileListDownload.id.slice(2)) : 0}
       />
 
       {/* Settings modal */}

@@ -1,5 +1,10 @@
 import { fetch } from '@tauri-apps/plugin-http';
-import type { CloudDownload, CloudDownloadStatus, CloudDownloadType } from '../types/downloads';
+import type {
+  CloudDownload,
+  CloudDownloadStatus,
+  CloudDownloadType,
+  FileInfo,
+} from '../types/downloads';
 
 // ---------------------------------------------------------------------------
 // API client helpers
@@ -257,6 +262,17 @@ function applySharedFields(download: CloudDownload, raw: SharedDownloadFields): 
   }
 }
 
+function mapTorBoxFile(f: TorBoxFile): FileInfo {
+  return {
+    id: f.id,
+    name: f.name,
+    sizeBytes: safeNum(f.size),
+    mimeType: f.mimetype,
+    infected: f.infected,
+    shortName: f.short_name,
+  };
+}
+
 function mapTorrentToCloudDownload(t: TorrentListData): CloudDownload {
   const download: CloudDownload = {
     id: `t-${t.id}`,
@@ -267,6 +283,7 @@ function mapTorrentToCloudDownload(t: TorrentListData): CloudDownload {
     sizeBytes: safeNum(t.size),
     addedAt: new Date(),
     fileCount: t.files?.length ?? 0,
+    files: t.files?.map(mapTorBoxFile) ?? [],
     paused: false,
     cached: false,
     seeders: t.seeds,
@@ -286,6 +303,7 @@ function mapWebToCloudDownload(w: WebDownloadListData): CloudDownload {
     sizeBytes: safeNum(w.size),
     addedAt: new Date(),
     fileCount: w.files?.length ?? 0,
+    files: w.files?.map(mapTorBoxFile) ?? [],
     paused: false,
     cached: false,
   };
@@ -360,6 +378,28 @@ export async function controlDownload(
       all: false,
     });
   }
+}
+
+/** Request a temporary download link for a file within a download. */
+export async function requestFileDownloadLink(
+  apiKey: string,
+  type: CloudDownloadType,
+  downloadId: number,
+  fileId: number
+): Promise<string> {
+  const path = type === 'torrent' ? 'torrents/requestdl' : 'webdl/requestdl';
+  const bodyKey = type === 'torrent' ? 'torrent_id' : 'webdl_id';
+
+  const response = await fetch(`${API_BASE}/${path}`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ [bodyKey]: downloadId, file_id: fileId }),
+  });
+
+  return extractData<string>(response);
 }
 
 export { TorBoxApiError };
