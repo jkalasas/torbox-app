@@ -1,52 +1,42 @@
+import { invoke } from '@tauri-apps/api/core';
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useCallback, useEffect, useState } from 'react';
 import type { LocalTransfer } from '../types/downloads';
 
-const SIMULATED_DELAY_MS = 400;
+interface ProgressPayload {
+  download_id: string;
+  progress: number;
+  speed_bytes_per_sec: number | null;
+  eta_seconds: number | null;
+}
 
-const MOCK_TRANSFERS: LocalTransfer[] = [
-  {
-    id: 'local-1',
-    name: 'debian-12.5.0-amd64-netinst.iso',
-    status: 'transferring',
-    progress: 58,
-    sizeBytes: 3_800_000_000,
-    speedBytesPerSec: 15_200_000,
-    etaSeconds: 105,
-    destinationPath: '~/Downloads',
-    cloudDownloadId: 'dl-2',
-    addedAt: new Date('2026-06-16T11:00:00Z'),
-  },
-  {
-    id: 'local-2',
-    name: 'pop-os_24.04_amd64_nvidia.iso',
-    status: 'complete',
-    progress: 100,
-    sizeBytes: 2_800_000_000,
-    destinationPath: '~/Downloads/ISOs',
-    cloudDownloadId: 'dl-5',
-    addedAt: new Date('2026-06-15T09:30:00Z'),
-  },
-  {
-    id: 'local-3',
-    name: 'ubuntu-24.04.1-desktop-amd64.iso',
-    status: 'error',
-    progress: 12,
-    sizeBytes: 5_700_000_000,
-    speedBytesPerSec: 0,
-    errorMessage: 'Insufficient disk space',
-    destinationPath: '~/Downloads',
-    cloudDownloadId: 'dl-1',
-    addedAt: new Date('2026-06-16T11:05:00Z'),
-  },
-];
+interface CompletePayload {
+  download_id: string;
+  path: string;
+}
+
+interface ErrorPayload {
+  download_id: string;
+  message: string;
+}
+
+interface QueuedPayload {
+  download_id: string;
+  position: number;
+}
 
 export interface UseLocalTransfersReturn {
   transfers: LocalTransfer[];
   loading: boolean;
   error: string | null;
-  startTransfer: (cloudDownloadId: string, name: string, sizeBytes: number) => void;
-  removeTransfer: (id: string) => void;
-  retryTransfer: (id: string) => void;
+  startTransfer: (
+    cloudDownloadId: string,
+    cloudDownloadType: string,
+    name: string,
+    sizeBytes: number
+  ) => Promise<void>;
+  removeTransfer: (id: string) => Promise<void>;
+  retryTransfer: (id: string) => Promise<void>;
   refresh: () => Promise<void>;
   counts: {
     total: number;
@@ -55,8 +45,28 @@ export interface UseLocalTransfersReturn {
   };
 }
 
-function simulateApiCall<T>(data: T): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(data), SIMULATED_DELAY_MS));
+function mapRustToTransfer(raw: Record<string, unknown>): LocalTransfer {
+  const statusMap: Record<string, LocalTransfer['status']> = {
+    queued: 'queued',
+    downloading: 'transferring',
+    complete: 'complete',
+    paused: 'queued',
+    error: 'error',
+  };
+
+  return {
+    id: raw.id as string,
+    name: raw.name as string,
+    status: statusMap[raw.status as string] ?? 'queued',
+    progress: (raw.progress as number) ?? 0,
+    sizeBytes: (raw.size_bytes as number) ?? 0,
+    speedBytesPerSec: (raw.speed_bytes_per_sec as number) ?? undefined,
+    etaSeconds: (raw.eta_seconds as number) ?? undefined,
+    errorMessage: (raw.error_message as string) ?? undefined,
+    destinationPath: (raw.destination_path as string) ?? '',
+    cloudDownloadId: (raw.cloud_download_id as string) ?? '',
+    addedAt: new Date((raw.added_at as number | string | undefined) ?? Date.now()),
+  };
 }
 
 export function useLocalTransfers(): UseLocalTransfersReturn {
@@ -68,10 +78,10 @@ export function useLocalTransfers(): UseLocalTransfersReturn {
     setLoading(true);
     setError(null);
     try {
-      const data = await simulateApiCall(MOCK_TRANSFERS);
-      setTransfers(data);
-    } catch {
-      setError('Failed to load local transfers');
+      const raw = await invoke<Record<string, unknown>[]>('list_downloads', {});
+      setTransfers(raw.map(mapRustToTransfer));
+    } catch (e) {
+      setError(String(e));
     } finally {
       setLoading(false);
     }
@@ -81,35 +91,135 @@ export function useLocalTransfers(): UseLocalTransfersReturn {
     void load();
   }, [load]);
 
-  const startTransfer = useCallback((cloudDownloadId: string, name: string, sizeBytes: number) => {
-    const newTransfer: LocalTransfer = {
-      id: `local-${Date.now()}`,
-      name,
-      status: 'queued',
-      progress: 0,
-      sizeBytes,
-      destinationPath: '~/Downloads',
-      cloudDownloadId,
-      addedAt: new Date(),
+  // Listen for Tauri events
+  useEffect(() => {
+    let active = true;
+    const unlisteners: UnlistenFn[] = [];
+
+    const setupListeners = async () => {
+      const pending: Promise<UnlistenFn>[] = [];
+
+      pending.push(
+        listen<ProgressPayload>('download-progress', (event) => {
+          if (!active) {
+            return;
+          }
+          setTransfers((prev) =>
+            prev.map((t) =>
+              t.id === event.payload.download_id
+                ? {
+                    ...t,
+                    status: 'transferring',
+                    progress: event.payload.progress,
+                    speedBytesPerSec: event.payload.speed_bytes_per_sec ?? undefined,
+                    etaSeconds: event.payload.eta_seconds ?? undefined,
+                  }
+                : t
+            )
+          );
+        })
+      );
+
+      pending.push(
+        listen<CompletePayload>('download-complete', (event) => {
+          if (!active) {
+            return;
+          }
+          setTransfers((prev) =>
+            prev.map((t) =>
+              t.id === event.payload.download_id
+                ? { ...t, status: 'complete', progress: 100, destinationPath: event.payload.path }
+                : t
+            )
+          );
+        })
+      );
+
+      pending.push(
+        listen<ErrorPayload>('download-error', (event) => {
+          if (!active) {
+            return;
+          }
+          setTransfers((prev) =>
+            prev.map((t) =>
+              t.id === event.payload.download_id
+                ? { ...t, status: 'error', errorMessage: event.payload.message }
+                : t
+            )
+          );
+        })
+      );
+
+      pending.push(
+        listen<QueuedPayload>('download-queued', () => {
+          if (!active) {
+            return;
+          }
+          void load();
+        })
+      );
+
+      const unlistenFns = await Promise.all(pending);
+      if (!active) {
+        unlistenFns.forEach((fn) => fn());
+        return;
+      }
+      unlisteners.push(...unlistenFns);
     };
-    setTransfers((prev) => [newTransfer, ...prev]);
+
+    void setupListeners();
+
+    return () => {
+      active = false;
+      unlisteners.forEach((fn) => fn());
+    };
+  }, [load]);
+
+  const startTransfer = useCallback(
+    async (cloudDownloadId: string, cloudDownloadType: string, name: string, sizeBytes: number) => {
+      try {
+        await invoke('start_download', {
+          args: {
+            cloud_download_id: cloudDownloadId,
+            cloud_download_type: cloudDownloadType,
+            name,
+            size_bytes: sizeBytes,
+            file_ids: null,
+          },
+        });
+      } catch (e) {
+        setError(String(e));
+      }
+    },
+    []
+  );
+
+  const removeTransfer = useCallback(async (id: string) => {
+    try {
+      await invoke('cancel_download', { download_id: id });
+      await invoke('remove_download', { download_id: id });
+      setTransfers((prev) => prev.filter((t) => t.id !== id));
+    } catch (e) {
+      setError(String(e));
+    }
   }, []);
 
-  const removeTransfer = useCallback((id: string) => {
-    setTransfers((prev) => prev.filter((t) => t.id !== id));
-  }, []);
-
-  const retryTransfer = useCallback((id: string) => {
-    setTransfers((prev) =>
-      prev.map((t) =>
-        t.id === id ? { ...t, status: 'transferring', progress: 0, errorMessage: undefined } : t
-      )
-    );
+  const retryTransfer = useCallback(async (id: string) => {
+    try {
+      await invoke('resume_download', { download_id: id });
+      setTransfers((prev) =>
+        prev.map((t) =>
+          t.id === id ? { ...t, status: 'queued', progress: 0, errorMessage: undefined } : t
+        )
+      );
+    } catch (e) {
+      setError(String(e));
+    }
   }, []);
 
   const refresh = useCallback(async () => {
-    await simulateApiCall(null);
-  }, []);
+    await load();
+  }, [load]);
 
   const counts = {
     total: transfers.length,

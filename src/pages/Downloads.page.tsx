@@ -74,7 +74,7 @@ export function DownloadsPage() {
     (id: string) => {
       const download = downloads.find((d) => d.id === id);
       if (download) {
-        startTransfer(download.id, download.name, download.sizeBytes);
+        startTransfer(download.id, download.type, download.name, download.sizeBytes);
         setActiveTab('local');
       }
     },
