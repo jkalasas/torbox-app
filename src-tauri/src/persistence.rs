@@ -410,27 +410,6 @@ impl Persistence {
     }
 
     // ---- Download files ----
-
-    pub fn insert_download_files(
-        &self,
-        download_id: &str,
-        files: &[(u64, &str, u64)],
-    ) -> Result<(), rusqlite::Error> {
-        let mut conn = self
-            .conn
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        let tx = conn.transaction()?;
-        for (file_id, file_name, file_size) in files {
-            tx.execute(
-                "INSERT INTO download_files (download_id, file_id, file_name, file_size, status)
-                 VALUES (?1, ?2, ?3, ?4, 'pending')",
-                params![download_id, file_id, file_name, file_size],
-            )?;
-        }
-        tx.commit()?;
-        Ok(())
-    }
 }
 
 fn status_to_str(status: &DownloadStatus) -> &'static str {

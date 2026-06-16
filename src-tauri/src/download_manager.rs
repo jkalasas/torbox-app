@@ -120,7 +120,7 @@ impl DownloadManager {
                     self.queue.activate(id.clone()).await;
                     let manager = self.clone();
                     let app = app.clone();
-                    tokio::spawn(async move {
+                    tauri::async_runtime::spawn(async move {
                         let _permit = permit;
                         let _ = manager.run_download(app, id).await;
                     });

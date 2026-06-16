@@ -58,10 +58,10 @@ pub fn run() {
 
             let manager = crate::download_manager::DownloadManager::new(persistence, settings);
 
-            // Spawn queue processor
+            // Spawn queue processor on the Tauri-managed runtime
             let app_handle = app.handle().clone();
             let mgr = manager.clone();
-            tokio::spawn(async move {
+            tauri::async_runtime::spawn(async move {
                 mgr.process_queue(app_handle).await;
             });
 
