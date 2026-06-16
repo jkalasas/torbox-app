@@ -1,5 +1,7 @@
+mod bandwidth_limiter;
 mod models;
 mod persistence;
+mod queue_manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
