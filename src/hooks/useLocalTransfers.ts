@@ -203,8 +203,8 @@ export function useLocalTransfers(): UseLocalTransfersReturn {
 
   const removeTransfer = useCallback(async (id: string) => {
     try {
-      await invoke('cancel_download', { download_id: id });
-      await invoke('remove_download', { download_id: id });
+      await invoke('cancel_download', { downloadId: id });
+      await invoke('remove_download', { downloadId: id });
       setTransfers((prev) => prev.filter((t) => t.id !== id));
     } catch (e) {
       setError(String(e));
@@ -213,7 +213,7 @@ export function useLocalTransfers(): UseLocalTransfersReturn {
 
   const retryTransfer = useCallback(async (id: string) => {
     try {
-      await invoke('resume_download', { download_id: id });
+      await invoke('resume_download', { downloadId: id });
       setTransfers((prev) =>
         prev.map((t) =>
           t.id === id ? { ...t, status: 'queued', progress: 0, errorMessage: undefined } : t
