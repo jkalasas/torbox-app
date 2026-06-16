@@ -1,6 +1,6 @@
-import { ActionIcon, Text } from '@mantine/core';
+import { ActionIcon, SegmentedControl, Text } from '@mantine/core';
 import { IconSettings } from '@tabler/icons-react';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { AddDownloadModal } from '../components/AddDownloadModal/AddDownloadModal';
 import { DownloadList } from '../components/DownloadList/DownloadList';
 import { DownloadTabs } from '../components/DownloadTabs/DownloadTabs';
@@ -11,7 +11,12 @@ import { StatusBar } from '../components/StatusBar/StatusBar';
 import { useDownloads } from '../hooks/useDownloads';
 import { useLocalTransfers } from '../hooks/useLocalTransfers';
 import { useSettings } from '../hooks/useSettings';
-import type { CloudSubTab, DownloadTab } from '../types/downloads';
+import type {
+  CloudDownloadStatus,
+  CloudSubTab,
+  DownloadTab,
+  LocalTransferStatus,
+} from '../types/downloads';
 import classes from './Downloads.module.css';
 
 export function DownloadsPage() {
@@ -20,6 +25,10 @@ export function DownloadsPage() {
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [dismissedErrors, setDismissedErrors] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<
+    CloudDownloadStatus | LocalTransferStatus | 'all'
+  >('all');
 
   const { savedApiKey, setApiKey, saveApiKey, saving, saved, ready } = useSettings();
 
@@ -69,11 +78,44 @@ export function DownloadsPage() {
     [downloads, startTransfer]
   );
 
-  // Filter cloud downloads by sub-tab
-  const filteredDownloads =
-    activeTab === 'cloud' ? byType(cloudSubTab === 'torrents' ? 'torrent' : 'web') : undefined;
+  // Filter cloud downloads by sub-tab, name search, and status
+  const filteredDownloads = useMemo(() => {
+    if (activeTab !== 'cloud') {
+      return undefined;
+    }
 
-  const filteredTransfers = activeTab === 'local' ? transfers : undefined;
+    let result = byType(cloudSubTab === 'torrents' ? 'torrent' : 'web');
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      result = result.filter((d) => d.name.toLowerCase().includes(q));
+    }
+
+    if (statusFilter !== 'all') {
+      result = result.filter((d) => d.status === statusFilter);
+    }
+
+    return result;
+  }, [activeTab, cloudSubTab, searchQuery, statusFilter, byType]);
+
+  const filteredTransfers = useMemo(() => {
+    if (activeTab !== 'local') {
+      return undefined;
+    }
+
+    let result = transfers;
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      result = result.filter((t) => t.name.toLowerCase().includes(q));
+    }
+
+    if (statusFilter !== 'all') {
+      result = result.filter((t) => t.status === statusFilter);
+    }
+
+    return result;
+  }, [activeTab, searchQuery, statusFilter, transfers]);
 
   const loading = activeTab === 'cloud' ? cloudLoading : localLoading;
 
@@ -111,12 +153,17 @@ export function DownloadsPage() {
         onAdd={() => setAddModalOpen(true)}
         onRefresh={handleRefresh}
         onSettings={() => setSettingsOpen(true)}
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
       />
 
       {/* Tabs */}
       <DownloadTabs
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={(tab) => {
+          setActiveTab(tab);
+          setStatusFilter('all');
+        }}
         cloudSubTab={cloudSubTab}
         onCloudSubTabChange={setCloudSubTab}
         cloudCount={cloudCounts.total}
@@ -125,6 +172,33 @@ export function DownloadsPage() {
         webCount={cloudCounts.web}
         showSubTabs={activeTab === 'cloud'}
       />
+
+      {/* Status filter */}
+      <div className={classes.filterBar}>
+        <SegmentedControl
+          size="xs"
+          value={statusFilter}
+          onChange={(value) =>
+            setStatusFilter(value as CloudDownloadStatus | LocalTransferStatus | 'all')
+          }
+          data={
+            activeTab === 'cloud'
+              ? [
+                  { value: 'all', label: 'All' },
+                  { value: 'downloading', label: 'Downloading' },
+                  { value: 'queued', label: 'Queued' },
+                  { value: 'cached', label: 'Cached' },
+                  { value: 'error', label: 'Error' },
+                ]
+              : [
+                  { value: 'all', label: 'All' },
+                  { value: 'transferring', label: 'Transferring' },
+                  { value: 'complete', label: 'Complete' },
+                  { value: 'error', label: 'Error' },
+                ]
+          }
+        />
+      </div>
 
       {/* Error banner */}
       {showError && (

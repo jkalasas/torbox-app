@@ -9,6 +9,13 @@
   overflow: hidden;
 }
 
+/* Status filter bar (SegmentedControl) */
+.filterBar {
+  padding: 0.375rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
 /* Mobile header (hidden on desktop where OS title bar is used) */
 .mobileHeader {
   display: none;
@@ -32,6 +39,16 @@
     background-color: var(--bg);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
+  }
+
+  .filterBar {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .filterBar::-webkit-scrollbar {
+    display: none;
   }
 
   .page {

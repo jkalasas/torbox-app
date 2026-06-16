@@ -1,14 +1,22 @@
 import { ActionIcon, Button, TextInput, Tooltip } from '@mantine/core';
-import { IconPlus, IconRefresh, IconSettings } from '@tabler/icons-react';
+import { IconPlus, IconRefresh, IconSearch, IconSettings } from '@tabler/icons-react';
 import classes from './DownloadToolbar.module.css';
 
 export interface DownloadToolbarProps {
   onAdd?: () => void;
   onRefresh?: () => void;
   onSettings?: () => void;
+  searchValue?: string;
+  onSearchChange?: (value: string) => void;
 }
 
-export function DownloadToolbar({ onAdd, onRefresh, onSettings }: DownloadToolbarProps) {
+export function DownloadToolbar({
+  onAdd,
+  onRefresh,
+  onSettings,
+  searchValue = '',
+  onSearchChange,
+}: DownloadToolbarProps) {
   return (
     <div className={classes.toolbar} role="toolbar" aria-label="Download actions">
       {onAdd && (
@@ -25,9 +33,12 @@ export function DownloadToolbar({ onAdd, onRefresh, onSettings }: DownloadToolba
 
       <TextInput
         className={classes.magnetInput}
-        placeholder="Paste magnet link or URL…"
+        placeholder="Filter by name…"
         size="xs"
-        aria-label="Magnet link or URL input"
+        value={searchValue}
+        onChange={(e) => onSearchChange?.(e.currentTarget.value)}
+        leftSection={<IconSearch size={14} stroke={2} />}
+        aria-label="Filter downloads by name"
       />
 
       {onRefresh && (
