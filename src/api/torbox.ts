@@ -63,11 +63,46 @@ function normalizeList<T>(data: unknown): T[] {
   return [data as T];
 }
 
-async function apiGet<T>(apiKey: string, path: string): Promise<T> {
-  const response = await fetch(`${API_BASE}/${path}`, {
-    headers: { Authorization: `Bearer ${apiKey}` },
-  });
-  return extractData<T>(response);
+const MAX_RETRIES = 2;
+const RETRY_DELAY_MS = 500;
+
+function isRetryableError(err: unknown): boolean {
+  if (err instanceof TorBoxApiError) {
+    return err.status === undefined || err.status >= 500 || err.status === 429;
+  }
+  return err instanceof Error && err.name !== 'AbortError';
+}
+
+async function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function apiGet<T>(apiKey: string, path: string, signal?: AbortSignal): Promise<T> {
+  let lastError: Error = new Error('Unknown error');
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
+    if (signal?.aborted) {
+      const abortedError = new Error('Request aborted');
+      abortedError.name = 'AbortError';
+      throw abortedError;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/${path}`, {
+        headers: { Authorization: `Bearer ${apiKey}` },
+        signal,
+      });
+      return extractData<T>(response);
+    } catch (err) {
+      lastError = err instanceof Error ? err : new TorBoxApiError(String(err));
+      if (signal?.aborted || !isRetryableError(err) || attempt === MAX_RETRIES) {
+        break;
+      }
+      await sleep(RETRY_DELAY_MS * (attempt + 1));
+    }
+  }
+
+  throw lastError;
 }
 
 async function apiPostForm(apiKey: string, path: string, form: FormData): Promise<void> {
@@ -315,12 +350,26 @@ function mapWebToCloudDownload(w: WebDownloadListData): CloudDownload {
 // Public API
 // ---------------------------------------------------------------------------
 
-/** Fetch all cloud downloads (torrents + web). */
-export async function fetchDownloads(apiKey: string): Promise<CloudDownload[]> {
-  const [torrents, webDownloads] = await Promise.all([
-    apiGet<unknown>(apiKey, 'torrents/mylist').then(normalizeList<TorrentListData>),
-    apiGet<unknown>(apiKey, 'webdl/mylist').then(normalizeList<WebDownloadListData>),
+/** Fetch all cloud downloads (torrents + web).
+ *  If one endpoint fails, the other endpoint's data is still returned so the
+ *  UI remains usable during partial API instability. */
+export async function fetchDownloads(
+  apiKey: string,
+  signal?: AbortSignal
+): Promise<CloudDownload[]> {
+  const [torrentsResult, webDownloadsResult] = await Promise.allSettled([
+    apiGet<unknown>(apiKey, 'torrents/mylist', signal).then(normalizeList<TorrentListData>),
+    apiGet<unknown>(apiKey, 'webdl/mylist', signal).then(normalizeList<WebDownloadListData>),
   ]);
+
+  const torrents = torrentsResult.status === 'fulfilled' ? torrentsResult.value : [];
+  const webDownloads = webDownloadsResult.status === 'fulfilled' ? webDownloadsResult.value : [];
+
+  // If both endpoints failed, surface the first error so the caller knows the
+  // refresh truly failed. A single endpoint failure is treated as partial success.
+  if (torrentsResult.status === 'rejected' && webDownloadsResult.status === 'rejected') {
+    throw torrentsResult.reason;
+  }
 
   const all: CloudDownload[] = [
     ...torrents.map(mapTorrentToCloudDownload),

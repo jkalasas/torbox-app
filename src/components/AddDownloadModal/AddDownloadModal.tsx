@@ -74,16 +74,18 @@ export function AddDownloadModal({ opened, onClose, onAdd }: AddDownloadModalPro
           />
         </div>
 
-        <div>
-          <p className={classes.sectionLabel}>Or upload a file</p>
-          <button type="button" className={classes.dropZone} aria-label="Upload torrent file">
-            <div className={classes.dropZoneIcon}>
-              <IconFileUpload size={24} stroke={1.5} />
-            </div>
-            <p className={classes.dropZoneText}>Drop a .torrent file here or click to browse</p>
-            <p className={classes.dropZoneHint}>Torrent files only (.torrent)</p>
-          </button>
-        </div>
+        {type === 'torrent' && (
+          <div>
+            <p className={classes.sectionLabel}>Or upload a file</p>
+            <button type="button" className={classes.dropZone} aria-label="Upload torrent file">
+              <div className={classes.dropZoneIcon}>
+                <IconFileUpload size={24} stroke={1.5} />
+              </div>
+              <p className={classes.dropZoneText}>Drop a .torrent file here or click to browse</p>
+              <p className={classes.dropZoneHint}>Torrent files only (.torrent)</p>
+            </button>
+          </div>
+        )}
 
         <div className={classes.actions}>
           <Button variant="default" onClick={handleClose}>

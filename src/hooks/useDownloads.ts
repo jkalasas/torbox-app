@@ -9,6 +9,12 @@ import {
 import { getCachedDownloads, saveDownloadsCache } from '../cache/downloadsCache';
 import type { CloudDownload, CloudDownloadType } from '../types/downloads';
 
+interface LoadOptions {
+  /** When true, the load is a silent background refresh and should not show
+   *  the loading skeleton or clear the existing error banner. */
+  background?: boolean;
+}
+
 /** Poll interval in ms when there are active (downloading/queued) downloads. */
 const POLL_INTERVAL_MS = 5000;
 
@@ -41,6 +47,10 @@ export function useDownloads(apiKey: string): UseDownloadsReturn {
   const mountedRef = useRef(true);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isPollingRef = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const loadPromiseRef = useRef<Promise<void> | null>(null);
+  const loadApiKeyRef = useRef<string | null>(null);
+  const downloadsRef = useRef<CloudDownload[]>([]);
 
   // Derive whether there are active downloads from state (used outside render to
   // avoid stale-closure issues — we recompute inside the poll callback).
@@ -48,6 +58,91 @@ export function useDownloads(apiKey: string): UseDownloadsReturn {
     (list: CloudDownload[]) =>
       list.some((d) => d.status === 'downloading' || d.status === 'queued'),
     []
+  );
+
+  // -----------------------------------------------------------------------
+  // Loading
+  // -----------------------------------------------------------------------
+  const load = useCallback(
+    async (options: LoadOptions = {}) => {
+      if (!apiKey) {
+        setDownloads([]);
+        setLoading(false);
+        setError(null);
+        return;
+      }
+
+      // Deduplicate: if a load is already running for the same API key, return
+      // the same promise. A different key means the old request is stale.
+      if (loadPromiseRef.current !== null && loadApiKeyRef.current === apiKey) {
+        return loadPromiseRef.current;
+      }
+
+      // Cancel any previous in-flight request so stale data doesn't overwrite
+      // a newer response.
+      if (abortControllerRef.current !== null) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
+      loadApiKeyRef.current = apiKey;
+
+      const { background = false } = options;
+
+      if (!background) {
+        setLoading(true);
+        setError(null);
+      }
+
+      const run = async () => {
+        // 1. Show cached data immediately for instant display
+        try {
+          const cached = await getCachedDownloads();
+          if (mountedRef.current && cached.length > 0) {
+            setDownloads(cached);
+          }
+        } catch {
+          // Cache read failure is non-fatal — proceed to API fetch
+        }
+
+        // 2. Fetch fresh data from API
+        try {
+          const data = await fetchDownloads(apiKey, abortController.signal);
+          if (mountedRef.current && !abortController.signal.aborted) {
+            setDownloads(data);
+            if (!background) {
+              setError(null);
+            }
+          }
+          // Persist to cache (don't block the UI on this)
+          saveDownloadsCache(data).catch(() => {
+            // Cache write failure is non-fatal
+          });
+        } catch (err) {
+          if (mountedRef.current && !abortController.signal.aborted && !background) {
+            setError(err instanceof Error ? err.message : String(err));
+          }
+        } finally {
+          if (mountedRef.current && !background) {
+            setLoading(false);
+          }
+        }
+      };
+
+      loadPromiseRef.current = run();
+      try {
+        await loadPromiseRef.current;
+      } finally {
+        loadPromiseRef.current = null;
+        loadApiKeyRef.current = null;
+        if (abortControllerRef.current === abortController) {
+          abortControllerRef.current = null;
+        }
+      }
+    },
+    [apiKey]
   );
 
   // -----------------------------------------------------------------------
@@ -73,16 +168,15 @@ export function useDownloads(apiKey: string): UseDownloadsReturn {
         return;
       }
       isPollingRef.current = true;
-      fetchDownloads(apiKey)
-        .then((data) => {
+      // Background refresh reuses the same cache + fetch path without flashing
+      // the loading skeleton.
+      load({ background: true })
+        .then(() => {
           if (!mountedRef.current) {
             return;
           }
-          setDownloads(data);
-          setError(null);
-          saveDownloadsCache(data).catch(() => {});
           // Stop polling if nothing is active anymore
-          if (!hasActiveDownloads(data)) {
+          if (!hasActiveDownloads(downloadsRef.current)) {
             clearPolling();
           }
         })
@@ -94,7 +188,7 @@ export function useDownloads(apiKey: string): UseDownloadsReturn {
           isPollingRef.current = false;
         });
     }, POLL_INTERVAL_MS);
-  }, [apiKey, hasActiveDownloads, clearPolling]);
+  }, [apiKey, hasActiveDownloads, clearPolling, load]);
 
   // Clean up on unmount
   useEffect(() => {
@@ -104,52 +198,17 @@ export function useDownloads(apiKey: string): UseDownloadsReturn {
     };
   }, [clearPolling]);
 
-  const load = useCallback(async () => {
-    if (!apiKey) {
-      setDownloads([]);
-      setLoading(false);
-      setError(null);
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    // 1. Show cached data immediately for instant display
-    try {
-      const cached = await getCachedDownloads();
-      if (mountedRef.current && cached.length > 0) {
-        setDownloads(cached);
-      }
-    } catch {
-      // Cache read failure is non-fatal — proceed to API fetch
-    }
-
-    // 2. Fetch fresh data from API in the background
-    try {
-      const data = await fetchDownloads(apiKey);
-      if (mountedRef.current) {
-        setDownloads(data);
-      }
-      // Persist to cache (don't block the UI on this)
-      saveDownloadsCache(data).catch(() => {
-        // Cache write failure is non-fatal
-      });
-    } catch (err) {
-      if (mountedRef.current) {
-        setError(err instanceof Error ? err.message : String(err));
-      }
-    } finally {
-      if (mountedRef.current) {
-        setLoading(false);
-      }
-    }
-  }, [apiKey]);
-
   // Initial load and reload when apiKey changes
   useEffect(() => {
     clearPolling();
     void load();
+
+    return () => {
+      if (abortControllerRef.current !== null) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+    };
   }, [load, clearPolling]);
 
   const addDownload = useCallback(
@@ -261,7 +320,7 @@ export function useDownloads(apiKey: string): UseDownloadsReturn {
   );
 
   const refresh = useCallback(async () => {
-    await load();
+    await load({ background: false });
   }, [load]);
 
   const byType = useCallback(
@@ -288,6 +347,12 @@ export function useDownloads(apiKey: string): UseDownloadsReturn {
       clearPolling();
     }
   }, [downloads, apiKey, loading, startPolling, clearPolling, hasActiveDownloads]);
+
+  // Keep a stable ref to the latest downloads for the polling callback so it
+  // can decide whether to stop without adding downloads to startPolling deps.
+  useEffect(() => {
+    downloadsRef.current = downloads;
+  }, [downloads]);
 
   return {
     downloads,
