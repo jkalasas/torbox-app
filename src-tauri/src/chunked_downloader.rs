@@ -27,7 +27,7 @@ impl ChunkedDownloader {
     }
 
     pub fn compute_chunks(file_size: u64) -> Vec<(u32, u64, u64)> {
-        let total = ((file_size + CHUNK_SIZE - 1) / CHUNK_SIZE) as u32;
+        let total = file_size.div_ceil(CHUNK_SIZE) as u32;
         (0..total)
             .map(|i| {
                 let offset = i as u64 * CHUNK_SIZE;
@@ -85,6 +85,7 @@ impl ChunkedDownloader {
         let mut file = tokio::fs::OpenOptions::new()
             .create(true)
             .write(true)
+            .truncate(false)
             .open(dest_path)
             .await
             .map_err(|e| format!("Cannot open {}: {}", dest_path, e))?;

@@ -21,6 +21,11 @@ import type {
 } from '../types/downloads';
 import classes from './Downloads.module.css';
 
+function parseNumericId(id: string): number {
+  const numeric = id.replace(/^\D+/, '');
+  return Number(numeric);
+}
+
 export function DownloadsPage() {
   const [activeTab, setActiveTab] = useState<DownloadTab>('cloud');
   const [cloudSubTab, setCloudSubTab] = useState<CloudSubTab>('torrents');
@@ -279,7 +284,7 @@ export function DownloadsPage() {
         files={fileListDownload?.files ?? []}
         apiKey={settings.api_key}
         downloadType={fileListDownload?.type ?? 'torrent'}
-        downloadId={fileListDownload ? Number(fileListDownload.id.slice(2)) : 0}
+        downloadId={fileListDownload ? parseNumericId(fileListDownload.id) : 0}
         onDownloadFile={(fileId, fileName, fileSize) => {
           if (fileListDownload) {
             startTransfer(fileListDownload.id, fileListDownload.type, fileName, fileSize, [fileId]);

@@ -59,7 +59,7 @@ function mapRustToTransfer(raw: Record<string, unknown>): LocalTransfer {
     id: raw.id as string,
     name: raw.name as string,
     status: statusMap[raw.status as string] ?? 'queued',
-    progress: (raw.progress as number) ?? 0,
+    progress: ((raw.progress as number) ?? 0) * 100,
     sizeBytes: (raw.size_bytes as number) ?? 0,
     speedBytesPerSec: (raw.speed_bytes_per_sec as number) ?? undefined,
     etaSeconds: (raw.eta_seconds as number) ?? undefined,
@@ -111,7 +111,7 @@ export function useLocalTransfers(): UseLocalTransfersReturn {
                 ? {
                     ...t,
                     status: 'transferring',
-                    progress: event.payload.progress,
+                    progress: event.payload.progress * 100,
                     speedBytesPerSec: event.payload.speed_bytes_per_sec ?? undefined,
                     etaSeconds: event.payload.eta_seconds ?? undefined,
                   }
