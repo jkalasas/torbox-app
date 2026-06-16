@@ -7,6 +7,12 @@
   ],
   "permissions": [
     "core:default",
-    "store:default"
+    "store:default",
+    {
+      "identifier": "http:default",
+      "allow": [
+        { "url": "https://api.torbox.app/**" }
+      ]
+    }
   ]
 }
