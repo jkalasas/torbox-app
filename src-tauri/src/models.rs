@@ -53,6 +53,7 @@ pub struct LocalDownload {
     pub error_message: Option<String>,
     pub destination_path: String,
     pub cloud_download_id: String,
+    pub cloud_download_type: Option<String>,
     #[serde(with = "chrono::serde::ts_milliseconds")]
     pub added_at: chrono::DateTime<chrono::Utc>,
 }
