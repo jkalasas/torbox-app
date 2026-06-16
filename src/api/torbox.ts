@@ -1,8 +1,96 @@
-import { invoke } from '@tauri-apps/api/core';
 import type { CloudDownload, CloudDownloadStatus, CloudDownloadType } from '../types/downloads';
 
 // ---------------------------------------------------------------------------
-// Raw API response types (matching Rust structs)
+// API client helpers
+// ---------------------------------------------------------------------------
+
+const API_BASE = 'https://api.torbox.app/v1/api';
+
+class TorBoxApiError extends Error {
+  status: number | undefined;
+  errorCode: string | undefined;
+
+  constructor(message: string, status?: number, errorCode?: string) {
+    super(message);
+    this.name = 'TorBoxApiError';
+    this.status = status;
+    this.errorCode = errorCode;
+  }
+}
+
+interface TorBoxEnvelope<T> {
+  success: boolean;
+  error: string | null;
+  detail: string;
+  data: T | null;
+}
+
+async function extractData<T>(response: Response): Promise<T> {
+  if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    throw new TorBoxApiError(`HTTP ${response.status}: ${text}`, response.status);
+  }
+
+  const envelope = (await response.json()) as TorBoxEnvelope<T>;
+
+  if (!envelope.success) {
+    throw new TorBoxApiError(
+      envelope.detail || envelope.error || 'Unknown API error',
+      response.status,
+      envelope.error ?? undefined
+    );
+  }
+
+  if (envelope.data === null || envelope.data === undefined) {
+    throw new TorBoxApiError('API returned success but no data', response.status);
+  }
+
+  return envelope.data;
+}
+
+/** The TorBox list endpoints return an array when no `id` is given,
+ *  but a single object when `id` is specified. Normalize to array. */
+function normalizeList<T>(data: unknown): T[] {
+  if (Array.isArray(data)) {
+    return data as T[];
+  }
+  return [data as T];
+}
+
+async function apiGet<T>(apiKey: string, path: string): Promise<T> {
+  const response = await fetch(`${API_BASE}/${path}`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  });
+  return extractData<T>(response);
+}
+
+async function apiPostForm(apiKey: string, path: string, form: FormData): Promise<void> {
+  const response = await fetch(`${API_BASE}/${path}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}` },
+    body: form,
+  });
+  await extractData<unknown>(response);
+}
+
+async function apiPostJson(
+  apiKey: string,
+  path: string,
+  body: Record<string, unknown>
+): Promise<void> {
+  const response = await fetch(`${API_BASE}/${path}`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  await extractData<unknown>(response);
+}
+
+// ---------------------------------------------------------------------------
+// Raw API response types (matching TorBox API JSON)
 // ---------------------------------------------------------------------------
 
 interface TorBoxFile {
@@ -113,7 +201,6 @@ function mapDownloadState(state: string | null | undefined, active: boolean): St
   if (state && STATE_MAP[state]) {
     return STATE_MAP[state];
   }
-  // Fallback: if not active, treat as paused; otherwise queued
   if (!active) {
     return { status: 'downloading', paused: true };
   }
@@ -121,7 +208,7 @@ function mapDownloadState(state: string | null | undefined, active: boolean): St
 }
 
 // ---------------------------------------------------------------------------
-// Shared fields mapping
+// Response → CloudDownload mapping
 // ---------------------------------------------------------------------------
 
 interface SharedDownloadFields {
@@ -159,10 +246,6 @@ function applySharedFields(download: CloudDownload, raw: SharedDownloadFields): 
   }
 }
 
-// ---------------------------------------------------------------------------
-// Type-specific mapping
-// ---------------------------------------------------------------------------
-
 function mapTorrentToCloudDownload(t: TorrentListData): CloudDownload {
   const download: CloudDownload = {
     id: `t-${t.id}`,
@@ -177,9 +260,7 @@ function mapTorrentToCloudDownload(t: TorrentListData): CloudDownload {
     seeders: t.seeds,
     peers: t.peers,
   };
-
   applySharedFields(download, t);
-
   return download;
 }
 
@@ -195,114 +276,48 @@ function mapWebToCloudDownload(w: WebDownloadListData): CloudDownload {
     fileCount: w.files.length,
     paused: false,
   };
-
   applySharedFields(download, w);
-
   return download;
 }
 
 // ---------------------------------------------------------------------------
-// API functions
+// Public API
 // ---------------------------------------------------------------------------
 
 /** Fetch all cloud downloads (torrents + web). */
 export async function fetchDownloads(apiKey: string): Promise<CloudDownload[]> {
   const [torrents, webDownloads] = await Promise.all([
-    invoke<TorrentListData[]>('get_torrent_list', {
-      apiKey,
-      bypassCache: false,
-      id: null,
-      offset: null,
-      limit: null,
-    }),
-    invoke<WebDownloadListData[]>('get_web_download_list', {
-      apiKey,
-      bypassCache: false,
-      id: null,
-      offset: null,
-      limit: null,
-    }),
+    apiGet<unknown>(apiKey, 'torrents/mylist').then(normalizeList<TorrentListData>),
+    apiGet<unknown>(apiKey, 'webdl/mylist').then(normalizeList<WebDownloadListData>),
   ]);
 
-  const cloudDownloads: CloudDownload[] = [
+  const all: CloudDownload[] = [
     ...torrents.map(mapTorrentToCloudDownload),
     ...webDownloads.map(mapWebToCloudDownload),
   ];
 
-  // Sort by most recently added first
-  cloudDownloads.sort((a, b) => b.addedAt.getTime() - a.addedAt.getTime());
-
-  return cloudDownloads;
+  all.sort((a, b) => b.addedAt.getTime() - a.addedAt.getTime());
+  return all;
 }
 
 /** Add a torrent via magnet link. */
 export async function addTorrentMagnet(apiKey: string, magnet: string): Promise<void> {
-  await invoke('create_torrent_magnet', {
-    apiKey,
-    magnet,
-    seed: 1,
-    allowZip: false,
-    name: null,
-    asQueued: false,
-    addOnlyIfCached: false,
-  });
+  const form = new FormData();
+  form.append('magnet', magnet);
+  form.append('seed', '1');
+  form.append('allow_zip', 'false');
+  form.append('as_queued', 'false');
+
+  await apiPostForm(apiKey, 'torrents/createtorrent', form);
 }
 
 /** Add a web download via URL. */
 export async function addWebDownload(apiKey: string, link: string): Promise<void> {
-  await invoke('create_web_download', {
-    apiKey,
-    link,
-    password: null,
-    name: null,
-    asQueued: false,
-    addOnlyIfCached: false,
-  });
-}
+  const form = new FormData();
+  form.append('link', link);
+  form.append('as_queued', 'false');
 
-/** Strip the prefix from a download ID to get the raw torrent/web ID. */
-function rawId(id: string): number {
-  return Number(id.slice(2));
-}
-
-/** Delete a torrent download. */
-async function deleteTorrent(apiKey: string, torrentId: number): Promise<void> {
-  await invoke('control_torrent', {
-    apiKey,
-    torrentId,
-    operation: 'delete',
-    all: false,
-  });
-}
-
-/** Delete a web download. */
-async function deleteWebDownload(apiKey: string, webId: number): Promise<void> {
-  await invoke('control_web_download', {
-    apiKey,
-    webdlId: webId,
-    operation: 'delete',
-    all: false,
-  });
-}
-
-/** Pause a torrent download (stop seeding). */
-async function pauseTorrent(apiKey: string, torrentId: number): Promise<void> {
-  await invoke('control_torrent', {
-    apiKey,
-    torrentId,
-    operation: 'stop_seeding',
-    all: false,
-  });
-}
-
-/** Resume a torrent download. */
-async function resumeTorrent(apiKey: string, torrentId: number): Promise<void> {
-  await invoke('control_torrent', {
-    apiKey,
-    torrentId,
-    operation: 'resume',
-    all: false,
-  });
+  await apiPostForm(apiKey, 'webdl/createwebdownload', form);
 }
 
 /** Control a cloud download: pause, resume, or delete. */
@@ -312,30 +327,26 @@ export async function controlDownload(
   type: CloudDownloadType,
   operation: 'pause' | 'resume' | 'delete'
 ): Promise<void> {
-  const numericId = rawId(id);
+  const numericId = Number(id.slice(2));
 
-  switch (operation) {
-    case 'delete': {
-      if (type === 'torrent') {
-        await deleteTorrent(apiKey, numericId);
-      } else {
-        await deleteWebDownload(apiKey, numericId);
-      }
-      break;
+  if (type === 'torrent') {
+    const op = operation === 'pause' ? 'stop_seeding' : (operation as string);
+    await apiPostJson(apiKey, 'torrents/controltorrent', {
+      torrent_id: numericId,
+      operation: op,
+      all: false,
+    });
+  } else {
+    // Web downloads only support delete
+    if (operation !== 'delete') {
+      return;
     }
-    case 'pause': {
-      if (type === 'torrent') {
-        await pauseTorrent(apiKey, numericId);
-      }
-      // Web downloads don't support pause
-      break;
-    }
-    case 'resume': {
-      if (type === 'torrent') {
-        await resumeTorrent(apiKey, numericId);
-      }
-      // Web downloads don't support resume
-      break;
-    }
+    await apiPostJson(apiKey, 'webdl/controlwebdownload', {
+      webdl_id: numericId,
+      operation: 'delete',
+      all: false,
+    });
   }
 }
+
+export { TorBoxApiError };
