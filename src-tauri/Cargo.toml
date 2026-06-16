@@ -27,7 +27,8 @@ tauri-plugin-log = "2"
 tauri-plugin-store = "2"
 tauri-plugin-sql = { version = "2", features = ["sqlite"] }
 rusqlite = { version = "0.32", features = ["bundled"] }
-reqwest = { version = "0.12", default-features = false, features = ["stream", "rustls-tls"] }
+reqwest = { version = "0.12", default-features = false, features = ["stream", "rustls-tls", "json"] }
 uuid = { version = "1", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
 dirs-next = "2"
+tokio = { version = "1", features = ["sync", "time", "macros", "rt-multi-thread"] }

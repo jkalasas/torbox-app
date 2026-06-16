@@ -10,11 +10,12 @@ const CHUNK_SIZE: u64 = 4 * 1024 * 1024; // 4MB
 pub struct ChunkedDownloader {
     persistence: Arc<Persistence>,
     limiter: Arc<BandwidthLimiter>,
+    client: reqwest::Client,
 }
 
 impl ChunkedDownloader {
-    pub fn new(persistence: Arc<Persistence>, limiter: Arc<BandwidthLimiter>) -> Self {
-        Self { persistence, limiter }
+    pub fn new(persistence: Arc<Persistence>, limiter: Arc<BandwidthLimiter>, client: reqwest::Client) -> Self {
+        Self { persistence, limiter, client }
     }
 
     pub fn compute_chunks(file_size: u64) -> Vec<(u32, u64, u64)> {
@@ -35,6 +36,7 @@ impl ChunkedDownloader {
         dest_path: &str,
         file_size: u64,
         pause_rx: watch::Receiver<bool>,
+        mut on_progress: impl FnMut(f64) + Send,
     ) -> Result<(), String> {
         // Initialize chunk manifest if not already done
         let chunks = Self::compute_chunks(file_size);
@@ -74,10 +76,6 @@ impl ChunkedDownloader {
             .await
             .map_err(|e| format!("Cannot open {}: {}", dest_path, e))?;
 
-        let client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(30))
-            .build()
-            .map_err(|e| e.to_string())?;
         let pending = self.persistence.get_pending_chunks(download_id)
             .map_err(|e| e.to_string())?;
 
@@ -93,7 +91,7 @@ impl ChunkedDownloader {
             self.limiter.consume(size).await;
 
             let range_header = format!("bytes={}-{}", offset, offset + size - 1);
-            let response = client
+            let response = self.client
                 .get(download_url)
                 .header("Range", &range_header)
                 .send()
@@ -137,6 +135,8 @@ impl ChunkedDownloader {
                 .map_err(|e| e.to_string())?;
 
             completed_count += 1;
+            let progress = completed_count as f64 / total as f64;
+            (on_progress)(progress);
             self.persistence.update_chunk_counts(download_id, total, completed_count)
                 .map_err(|e| e.to_string())?;
         }
