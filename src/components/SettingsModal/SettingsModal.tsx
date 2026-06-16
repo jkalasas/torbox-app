@@ -128,6 +128,7 @@ export function SettingsModal({
             { value: 'light', label: 'Light' },
           ]}
           mb="md"
+          aria-label="Color mode"
         />
 
         <Divider mb="md" />
@@ -149,6 +150,7 @@ export function SettingsModal({
             value={localSettings.download_dir}
             onChange={(e) => update('download_dir', e.currentTarget.value)}
             placeholder="~/Downloads/TorBox"
+            aria-label="Download directory"
           />
           <Button
             variant="default"

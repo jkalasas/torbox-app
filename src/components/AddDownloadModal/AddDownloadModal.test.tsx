@@ -27,4 +27,16 @@ describe('AddDownloadModal', () => {
 
     expect(screen.queryByRole('button', { name: /upload torrent file/i })).not.toBeInTheDocument();
   });
+
+  it('has an accessible name for the URL input', () => {
+    renderModal();
+
+    expect(screen.getByRole('textbox', { name: 'Magnet link' })).toBeInTheDocument();
+  });
+
+  it('has an accessible name for the download type control', () => {
+    renderModal();
+
+    expect(screen.getByRole('radiogroup', { name: 'Download type' })).toBeInTheDocument();
+  });
 });

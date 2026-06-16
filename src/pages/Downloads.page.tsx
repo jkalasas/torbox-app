@@ -214,6 +214,7 @@ export function DownloadsPage() {
                   { value: 'error', label: 'Error' },
                 ]
           }
+          aria-label="Filter by status"
         />
       </div>
 

@@ -56,4 +56,16 @@ describe('SettingsModal', () => {
 
     expect(onSettingChange).toHaveBeenCalledWith('color_mode', 'auto');
   });
+
+  it('has an accessible name for the color mode control', () => {
+    renderModal();
+
+    expect(screen.getByRole('radiogroup', { name: 'Color mode' })).toBeInTheDocument();
+  });
+
+  it('has an accessible name for the download directory input', () => {
+    renderModal();
+
+    expect(screen.getByRole('textbox', { name: 'Download directory' })).toBeInTheDocument();
+  });
 });

@@ -46,6 +46,7 @@ export function AddDownloadModal({ opened, onClose, onAdd }: AddDownloadModalPro
               { value: 'web', label: 'Web' },
             ]}
             fullWidth
+            aria-label="Download type"
           />
         </div>
 
@@ -71,6 +72,7 @@ export function AddDownloadModal({ opened, onClose, onAdd }: AddDownloadModalPro
             }}
             leftSection={<IconLink size={16} stroke={2} />}
             autoFocus
+            aria-label={type === 'torrent' ? 'Magnet link' : 'URL'}
           />
         </div>
 
