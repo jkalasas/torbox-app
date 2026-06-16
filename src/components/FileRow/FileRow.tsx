@@ -1,5 +1,5 @@
 import { ActionIcon, Tooltip } from '@mantine/core';
-import { IconCopy, IconFile } from '@tabler/icons-react';
+import { IconCopy, IconDownload, IconFile } from '@tabler/icons-react';
 import { useCallback, useState } from 'react';
 import { requestFileDownloadLink } from '../../api/torbox';
 import type { CloudDownloadType, FileInfo } from '../../types/downloads';
@@ -11,9 +11,10 @@ export interface FileRowProps {
   apiKey: string;
   downloadType: CloudDownloadType;
   downloadId: number;
+  onDownload?: () => void;
 }
 
-export function FileRow({ file, apiKey, downloadType, downloadId }: FileRowProps) {
+export function FileRow({ file, apiKey, downloadType, downloadId, onDownload }: FileRowProps) {
   const [loadingLink, setLoadingLink] = useState(false);
 
   const handleCopyLink = useCallback(async () => {
@@ -51,6 +52,20 @@ export function FileRow({ file, apiKey, downloadType, downloadId }: FileRowProps
       </div>
 
       <div className={classes.actions}>
+        {onDownload && (
+          <Tooltip label="Download" withArrow>
+            <ActionIcon
+              variant="subtle"
+              size="md"
+              className={classes.actionButton}
+              onClick={onDownload}
+              aria-label={`Download ${file.shortName ?? file.name}`}
+            >
+              <IconDownload size={16} stroke={2} />
+            </ActionIcon>
+          </Tooltip>
+        )}
+
         <Tooltip label={loadingLink ? 'Requesting link…' : 'Copy download link'} withArrow>
           <ActionIcon
             variant="subtle"

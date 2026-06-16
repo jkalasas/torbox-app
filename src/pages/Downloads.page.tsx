@@ -280,6 +280,13 @@ export function DownloadsPage() {
         apiKey={settings.api_key}
         downloadType={fileListDownload?.type ?? 'torrent'}
         downloadId={fileListDownload ? Number(fileListDownload.id.slice(2)) : 0}
+        onDownloadFile={(fileId, fileName, fileSize) => {
+          if (fileListDownload) {
+            startTransfer(fileListDownload.id, fileListDownload.type, fileName, fileSize, [fileId]);
+            setActiveTab('local');
+            setFileListDownload(null);
+          }
+        }}
       />
 
       {/* Settings modal */}

@@ -32,9 +32,7 @@ pub fn run() {
             std::fs::create_dir_all(&app_dir).map_err(|e| e.to_string())?;
             let db_path = app_dir.join("downloads.db");
             let db_path_str = db_path.to_str().ok_or("Invalid database path")?;
-            let persistence = Arc::new(
-                Persistence::new(db_path_str).map_err(|e| e.to_string())?
-            );
+            let persistence = Arc::new(Persistence::new(db_path_str).map_err(|e| e.to_string())?);
 
             // Migrate API key from Tauri Store to SQLite on first run
             {
@@ -58,10 +56,7 @@ pub fn run() {
             // Load settings to get initial concurrency/bandwidth
             let settings = persistence.get_settings().unwrap_or_default();
 
-            let manager = crate::download_manager::DownloadManager::new(
-                persistence,
-                settings,
-            );
+            let manager = crate::download_manager::DownloadManager::new(persistence, settings);
 
             // Spawn queue processor
             let app_handle = app.handle().clone();

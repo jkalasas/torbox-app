@@ -54,6 +54,8 @@ pub struct LocalDownload {
     pub destination_path: String,
     pub cloud_download_id: String,
     pub cloud_download_type: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file_ids: Option<Vec<u64>>,
     #[serde(with = "chrono::serde::ts_milliseconds")]
     pub added_at: chrono::DateTime<chrono::Utc>,
 }

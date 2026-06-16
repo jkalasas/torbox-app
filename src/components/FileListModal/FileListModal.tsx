@@ -16,6 +16,8 @@ export interface FileListModalProps {
   downloadType: CloudDownloadType;
   /** Numeric ID of the parent download (without prefix) */
   downloadId: number;
+  /** Called when the user chooses to download a specific file to the device */
+  onDownloadFile?: (fileId: number, fileName: string, fileSize: number) => void;
 }
 
 export function FileListModal({
@@ -26,6 +28,7 @@ export function FileListModal({
   apiKey,
   downloadType,
   downloadId,
+  onDownloadFile,
 }: FileListModalProps) {
   return (
     <Modal opened={opened} onClose={onClose} title="Files" size="md" centered>
@@ -46,6 +49,11 @@ export function FileListModal({
               apiKey={apiKey}
               downloadType={downloadType}
               downloadId={downloadId}
+              onDownload={
+                onDownloadFile
+                  ? () => onDownloadFile(file.id, file.name, file.sizeBytes)
+                  : undefined
+              }
             />
           ))}
         </div>

@@ -14,8 +14,16 @@ pub struct ChunkedDownloader {
 }
 
 impl ChunkedDownloader {
-    pub fn new(persistence: Arc<Persistence>, limiter: Arc<BandwidthLimiter>, client: reqwest::Client) -> Self {
-        Self { persistence, limiter, client }
+    pub fn new(
+        persistence: Arc<Persistence>,
+        limiter: Arc<BandwidthLimiter>,
+        client: reqwest::Client,
+    ) -> Self {
+        Self {
+            persistence,
+            limiter,
+            client,
+        }
     }
 
     pub fn compute_chunks(file_size: u64) -> Vec<(u32, u64, u64)> {
@@ -41,14 +49,18 @@ impl ChunkedDownloader {
         // Initialize chunk manifest if not already done
         let chunks = Self::compute_chunks(file_size);
         let total = chunks.len() as u32;
-        let completed = self.persistence.get_completed_chunk_count(download_id)
+        let completed = self
+            .persistence
+            .get_completed_chunk_count(download_id)
             .map_err(|e| e.to_string())?;
 
         if completed == 0 {
-            self.persistence.init_chunks(download_id, &chunks)
+            self.persistence
+                .init_chunks(download_id, &chunks)
                 .map_err(|e| format!("Failed to init chunks: {}", e))?;
         }
-        self.persistence.update_chunk_counts(download_id, total, completed)
+        self.persistence
+            .update_chunk_counts(download_id, total, completed)
             .map_err(|e| e.to_string())?;
 
         // Create parent directory if it does not exist
@@ -63,7 +75,8 @@ impl ChunkedDownloader {
             tokio::fs::File::create(dest_path)
                 .await
                 .map_err(|e| format!("Cannot create {}: {}", dest_path, e))?;
-            self.persistence.clear_chunks(download_id)
+            self.persistence
+                .clear_chunks(download_id)
                 .map_err(|e| e.to_string())?;
             return Ok(());
         }
@@ -76,7 +89,9 @@ impl ChunkedDownloader {
             .await
             .map_err(|e| format!("Cannot open {}: {}", dest_path, e))?;
 
-        let pending = self.persistence.get_pending_chunks(download_id)
+        let pending = self
+            .persistence
+            .get_pending_chunks(download_id)
             .map_err(|e| e.to_string())?;
 
         let mut completed_count = completed;
@@ -91,7 +106,8 @@ impl ChunkedDownloader {
             self.limiter.consume(size).await;
 
             let range_header = format!("bytes={}-{}", offset, offset + size - 1);
-            let response = self.client
+            let response = self
+                .client
                 .get(download_url)
                 .header("Range", &range_header)
                 .send()
@@ -117,7 +133,9 @@ impl ChunkedDownloader {
             if bytes.len() as u64 != size {
                 return Err(format!(
                     "Chunk {} size mismatch: expected {}, got {}",
-                    chunk_index, size, bytes.len()
+                    chunk_index,
+                    size,
+                    bytes.len()
                 ));
             }
 
@@ -131,18 +149,21 @@ impl ChunkedDownloader {
                 .await
                 .map_err(|e| format!("Flush failed: {}", e))?;
 
-            self.persistence.mark_chunk_complete(download_id, chunk_index)
+            self.persistence
+                .mark_chunk_complete(download_id, chunk_index)
                 .map_err(|e| e.to_string())?;
 
             completed_count += 1;
             let progress = completed_count as f64 / total as f64;
             (on_progress)(progress);
-            self.persistence.update_chunk_counts(download_id, total, completed_count)
+            self.persistence
+                .update_chunk_counts(download_id, total, completed_count)
                 .map_err(|e| e.to_string())?;
         }
 
         // All chunks done
-        self.persistence.clear_chunks(download_id)
+        self.persistence
+            .clear_chunks(download_id)
             .map_err(|e| e.to_string())?;
         Ok(())
     }

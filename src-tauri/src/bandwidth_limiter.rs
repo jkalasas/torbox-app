@@ -9,7 +9,7 @@ pub struct BandwidthLimiter {
 
 struct Inner {
     tokens: f64,
-    rate: f64,          // bytes per second
+    rate: f64, // bytes per second
     max_tokens: f64,
     last_refill: Instant,
 }
@@ -118,10 +118,7 @@ mod tests {
         let limiter = BandwidthLimiter::new(1024); // 1 MiB/s
         let limiter_b = limiter.clone();
         let start = Instant::now();
-        let (a, b) = tokio::join!(
-            limiter.consume(512 * 1024),
-            limiter_b.consume(512 * 1024)
-        );
+        let (a, b) = tokio::join!(limiter.consume(512 * 1024), limiter_b.consume(512 * 1024));
         let _ = (a, b);
         let elapsed = start.elapsed().as_secs_f64();
         assert!(

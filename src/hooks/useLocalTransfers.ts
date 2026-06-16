@@ -33,7 +33,8 @@ export interface UseLocalTransfersReturn {
     cloudDownloadId: string,
     cloudDownloadType: string,
     name: string,
-    sizeBytes: number
+    sizeBytes: number,
+    fileIds?: number[]
   ) => Promise<void>;
   removeTransfer: (id: string) => Promise<void>;
   retryTransfer: (id: string) => Promise<void>;
@@ -176,7 +177,13 @@ export function useLocalTransfers(): UseLocalTransfersReturn {
   }, [load]);
 
   const startTransfer = useCallback(
-    async (cloudDownloadId: string, cloudDownloadType: string, name: string, sizeBytes: number) => {
+    async (
+      cloudDownloadId: string,
+      cloudDownloadType: string,
+      name: string,
+      sizeBytes: number,
+      fileIds?: number[]
+    ) => {
       try {
         await invoke('start_download', {
           args: {
@@ -184,7 +191,7 @@ export function useLocalTransfers(): UseLocalTransfersReturn {
             cloud_download_type: cloudDownloadType,
             name,
             size_bytes: sizeBytes,
-            file_ids: null,
+            file_ids: fileIds ?? null,
           },
         });
       } catch (e) {
