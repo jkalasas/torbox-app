@@ -136,7 +136,7 @@ function VirtualizedList({
   const virtualizer = useVirtualizer({
     count: items.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => 50,
+    estimateSize: () => 62,
     overscan: 5,
   });
 
