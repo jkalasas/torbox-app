@@ -18,12 +18,14 @@
   min-width: 0;
 }
 
-.refreshButton {
+.refreshButton,
+.settingsButton {
   flex-shrink: 0;
   color: var(--ink-muted);
 }
 
-.refreshButton:hover {
+.refreshButton:hover,
+.settingsButton:hover {
   color: var(--ink);
 }
 
@@ -59,7 +61,8 @@
     display: none;
   }
 
-  .refreshButton {
+  .refreshButton,
+  .settingsButton {
     display: none;
   }
 }

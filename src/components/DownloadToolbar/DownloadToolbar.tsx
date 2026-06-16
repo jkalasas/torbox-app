@@ -46,7 +46,13 @@ export function DownloadToolbar({ onAdd, onRefresh, onSettings }: DownloadToolba
 
       {onSettings && (
         <Tooltip label="Settings" withArrow>
-          <ActionIcon variant="subtle" size="md" onClick={onSettings} aria-label="Settings">
+          <ActionIcon
+            variant="subtle"
+            size="md"
+            className={classes.settingsButton}
+            onClick={onSettings}
+            aria-label="Settings"
+          >
             <IconSettings size={16} stroke={2} />
           </ActionIcon>
         </Tooltip>
