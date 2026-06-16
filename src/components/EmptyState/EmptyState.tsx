@@ -9,12 +9,7 @@ export interface EmptyStateProps {
   onAction?: () => void;
 }
 
-export function EmptyState({
-  title,
-  description,
-  actionLabel,
-  onAction,
-}: EmptyStateProps) {
+export function EmptyState({ title, description, actionLabel, onAction }: EmptyStateProps) {
   return (
     <div className={classes.wrapper}>
       <div className={classes.iconWrapper} aria-hidden="true">
@@ -23,11 +18,7 @@ export function EmptyState({
       <h2 className={classes.title}>{title}</h2>
       <p className={classes.description}>{description}</p>
       {onAction && (
-        <Button
-          className={classes.action}
-          onClick={onAction}
-          variant="filled"
-        >
+        <Button className={classes.action} onClick={onAction} variant="filled">
           {actionLabel}
         </Button>
       )}

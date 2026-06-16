@@ -175,24 +175,24 @@ export function useDownloads(): UseDownloadsReturn {
   const updateStatus = useCallback(
     (id: string, status: CloudDownloadStatus, paused = false, extra?: Partial<CloudDownload>) => {
       setDownloads((prev) =>
-        prev.map((d) => (d.id === id ? { ...d, status, paused, ...extra } : d)),
+        prev.map((d) => (d.id === id ? { ...d, status, paused, ...extra } : d))
       );
     },
-    [],
+    []
   );
 
   const pauseDownload = useCallback(
     (id: string) => updateStatus(id, 'downloading', true),
-    [updateStatus],
+    [updateStatus]
   );
   const resumeDownload = useCallback(
     (id: string) => updateStatus(id, 'downloading', false),
-    [updateStatus],
+    [updateStatus]
   );
   const retryDownload = useCallback(
     (id: string) =>
       updateStatus(id, 'downloading', false, { progress: 0, errorMessage: undefined }),
-    [updateStatus],
+    [updateStatus]
   );
   const removeDownload = useCallback((id: string) => {
     setDownloads((prev) => prev.filter((d) => d.id !== id));
@@ -205,7 +205,7 @@ export function useDownloads(): UseDownloadsReturn {
 
   const byType = useCallback(
     (type: CloudDownloadType) => downloads.filter((d) => d.type === type),
-    [downloads],
+    [downloads]
   );
 
   const counts = {

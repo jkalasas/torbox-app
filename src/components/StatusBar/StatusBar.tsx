@@ -8,12 +8,7 @@ export interface StatusBarProps {
   error: number;
 }
 
-export function StatusBar({
-  activeTab,
-  total,
-  active,
-  error,
-}: StatusBarProps) {
+export function StatusBar({ activeTab, total, active, error }: StatusBarProps) {
   const context = activeTab === 'cloud' ? 'cloud download' : 'local transfer';
 
   return (
@@ -24,7 +19,8 @@ export function StatusBar({
     >
       <div className={classes.stats}>
         <span className={classes.stat}>
-          {total} {context}{total !== 1 ? 's' : ''}
+          {total} {context}
+          {total !== 1 ? 's' : ''}
         </span>
         {active > 0 && (
           <>

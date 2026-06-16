@@ -1,6 +1,6 @@
-import { useState } from 'react';
 import { Button, Modal, SegmentedControl, TextInput } from '@mantine/core';
 import { IconFileUpload, IconLink } from '@tabler/icons-react';
+import { useState } from 'react';
 import type { CloudDownloadType } from '../../types/downloads';
 import classes from './AddDownloadModal.module.css';
 
@@ -10,11 +10,7 @@ export interface AddDownloadModalProps {
   onAdd: (name: string, type: CloudDownloadType, url: string) => void;
 }
 
-export function AddDownloadModal({
-  opened,
-  onClose,
-  onAdd,
-}: AddDownloadModalProps) {
+export function AddDownloadModal({ opened, onClose, onAdd }: AddDownloadModalProps) {
   const [type, setType] = useState<CloudDownloadType>('torrent');
   const [url, setUrl] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -38,13 +34,7 @@ export function AddDownloadModal({
   };
 
   return (
-    <Modal
-      opened={opened}
-      onClose={handleClose}
-      title="Add download"
-      size="sm"
-      centered
-    >
+    <Modal opened={opened} onClose={handleClose} title="Add download" size="sm" centered>
       <div className={classes.content}>
         <div>
           <SegmentedControl
@@ -60,15 +50,11 @@ export function AddDownloadModal({
         </div>
 
         <div>
-          <p className={classes.sectionLabel}>
-            {type === 'torrent' ? 'Magnet link' : 'URL'}
-          </p>
+          <p className={classes.sectionLabel}>{type === 'torrent' ? 'Magnet link' : 'URL'}</p>
           <TextInput
             className={classes.urlInput}
             placeholder={
-              type === 'torrent'
-                ? 'magnet:?xt=urn:btih:…'
-                : 'https://example.com/file.zip'
+              type === 'torrent' ? 'magnet:?xt=urn:btih:…' : 'https://example.com/file.zip'
             }
             value={url}
             onChange={(e) => {
@@ -90,20 +76,12 @@ export function AddDownloadModal({
 
         <div>
           <p className={classes.sectionLabel}>Or upload a file</p>
-          <button
-            type="button"
-            className={classes.dropZone}
-            aria-label="Upload torrent file"
-          >
+          <button type="button" className={classes.dropZone} aria-label="Upload torrent file">
             <div className={classes.dropZoneIcon}>
               <IconFileUpload size={24} stroke={1.5} />
             </div>
-            <p className={classes.dropZoneText}>
-              Drop a .torrent file here or click to browse
-            </p>
-            <p className={classes.dropZoneHint}>
-              Torrent files only (.torrent)
-            </p>
+            <p className={classes.dropZoneText}>Drop a .torrent file here or click to browse</p>
+            <p className={classes.dropZoneHint}>Torrent files only (.torrent)</p>
           </button>
         </div>
 

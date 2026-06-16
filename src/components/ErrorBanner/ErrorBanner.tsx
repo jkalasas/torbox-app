@@ -10,12 +10,7 @@ export interface ErrorBannerProps {
 export function ErrorBanner({ message, onDismiss }: ErrorBannerProps) {
   return (
     <div className={classes.banner} role="alert">
-      <IconExclamationCircle
-        size={16}
-        stroke={2}
-        className={classes.icon}
-        aria-hidden="true"
-      />
+      <IconExclamationCircle size={16} stroke={2} className={classes.icon} aria-hidden="true" />
       <span className={classes.message}>{message}</span>
       {onDismiss && (
         <ActionIcon

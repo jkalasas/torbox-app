@@ -81,22 +81,19 @@ export function useLocalTransfers(): UseLocalTransfersReturn {
     void load();
   }, [load]);
 
-  const startTransfer = useCallback(
-    (cloudDownloadId: string, name: string, sizeBytes: number) => {
-      const newTransfer: LocalTransfer = {
-        id: `local-${Date.now()}`,
-        name,
-        status: 'queued',
-        progress: 0,
-        sizeBytes,
-        destinationPath: '~/Downloads',
-        cloudDownloadId,
-        addedAt: new Date(),
-      };
-      setTransfers((prev) => [newTransfer, ...prev]);
-    },
-    [],
-  );
+  const startTransfer = useCallback((cloudDownloadId: string, name: string, sizeBytes: number) => {
+    const newTransfer: LocalTransfer = {
+      id: `local-${Date.now()}`,
+      name,
+      status: 'queued',
+      progress: 0,
+      sizeBytes,
+      destinationPath: '~/Downloads',
+      cloudDownloadId,
+      addedAt: new Date(),
+    };
+    setTransfers((prev) => [newTransfer, ...prev]);
+  }, []);
 
   const removeTransfer = useCallback((id: string) => {
     setTransfers((prev) => prev.filter((t) => t.id !== id));
@@ -104,7 +101,9 @@ export function useLocalTransfers(): UseLocalTransfersReturn {
 
   const retryTransfer = useCallback((id: string) => {
     setTransfers((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, status: 'transferring', progress: 0, errorMessage: undefined } : t)),
+      prev.map((t) =>
+        t.id === id ? { ...t, status: 'transferring', progress: 0, errorMessage: undefined } : t
+      )
     );
   }, []);
 

@@ -1,13 +1,14 @@
 import { ActionIcon, Button, TextInput, Tooltip } from '@mantine/core';
-import { IconPlus, IconRefresh } from '@tabler/icons-react';
+import { IconPlus, IconRefresh, IconSettings } from '@tabler/icons-react';
 import classes from './DownloadToolbar.module.css';
 
 export interface DownloadToolbarProps {
   onAdd?: () => void;
   onRefresh?: () => void;
+  onSettings?: () => void;
 }
 
-export function DownloadToolbar({ onAdd, onRefresh }: DownloadToolbarProps) {
+export function DownloadToolbar({ onAdd, onRefresh, onSettings }: DownloadToolbarProps) {
   return (
     <div className={classes.toolbar} role="toolbar" aria-label="Download actions">
       {onAdd && (
@@ -39,6 +40,14 @@ export function DownloadToolbar({ onAdd, onRefresh }: DownloadToolbarProps) {
             aria-label="Refresh downloads"
           >
             <IconRefresh size={16} stroke={2} />
+          </ActionIcon>
+        </Tooltip>
+      )}
+
+      {onSettings && (
+        <Tooltip label="Settings" withArrow>
+          <ActionIcon variant="subtle" size="md" onClick={onSettings} aria-label="Settings">
+            <IconSettings size={16} stroke={2} />
           </ActionIcon>
         </Tooltip>
       )}

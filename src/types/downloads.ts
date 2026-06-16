@@ -1,19 +1,11 @@
 /** Status for TorBox cloud-side downloads */
-export type CloudDownloadStatus =
-  | 'queued'
-  | 'downloading'
-  | 'cached'
-  | 'error';
+export type CloudDownloadStatus = 'queued' | 'downloading' | 'cached' | 'error';
 
 /** Type of cloud download source */
 export type CloudDownloadType = 'torrent' | 'web';
 
 /** Status for local device transfers */
-export type LocalTransferStatus =
-  | 'queued'
-  | 'transferring'
-  | 'complete'
-  | 'error';
+export type LocalTransferStatus = 'queued' | 'transferring' | 'complete' | 'error';
 
 /** A TorBox cloud-side download */
 export interface CloudDownload {

@@ -75,12 +75,8 @@ export function DownloadList({
           <div key={i} className={classes.skeletonRow}>
             <div className={classes.skeletonDot} />
             <div className={classes.skeletonContent}>
-              <div
-                className={`${classes.skeletonLine} ${classes.skeletonLineLong}`}
-              />
-              <div
-                className={`${classes.skeletonLine} ${classes.skeletonLineShort}`}
-              />
+              <div className={`${classes.skeletonLine} ${classes.skeletonLineLong}`} />
+              <div className={`${classes.skeletonLine} ${classes.skeletonLineShort}`} />
             </div>
             <div className={classes.skeletonProgress} />
           </div>

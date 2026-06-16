@@ -34,10 +34,7 @@ export interface DownloadRowProps {
   onDownloadToDevice?: (id: string) => void;
 }
 
-function getDotClass(
-  status: DownloadRowProps['status'],
-  paused: boolean,
-): string {
+function getDotClass(status: DownloadRowProps['status'], paused: boolean): string {
   if (paused) {
     return classes.dotPaused;
   }
@@ -114,9 +111,7 @@ export function DownloadRow({
               max={100}
               aria-label={`${name} progress: ${Math.round(progress)}%`}
             />
-            <div className={classes.progressPercent}>
-              {Math.round(progress)}%
-            </div>
+            <div className={classes.progressPercent}>{Math.round(progress)}%</div>
           </div>
         </div>
 
@@ -142,9 +137,7 @@ export function DownloadRow({
               <span className={classes.metaSeparator} aria-hidden="true">
                 ·
               </span>
-              <span className={classes.metaItem}>
-                {formatDuration(etaSeconds)} left
-              </span>
+              <span className={classes.metaItem}>{formatDuration(etaSeconds)} left</span>
             </>
           )}
 
@@ -162,9 +155,7 @@ export function DownloadRow({
               <span className={classes.metaSeparator} aria-hidden="true">
                 ·
               </span>
-              <span className={classes.metaItem}>
-                {type ? 'Cached' : 'Complete'}
-              </span>
+              <span className={classes.metaItem}>{type ? 'Cached' : 'Complete'}</span>
             </>
           )}
 
@@ -173,9 +164,7 @@ export function DownloadRow({
               <span className={classes.metaSeparator} aria-hidden="true">
                 ·
               </span>
-              <span className={classes.metaItem}>
-                {type === 'torrent' ? 'Torrent' : 'Web'}
-              </span>
+              <span className={classes.metaItem}>{type === 'torrent' ? 'Torrent' : 'Web'}</span>
             </>
           )}
 

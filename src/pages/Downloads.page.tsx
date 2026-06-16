@@ -1,21 +1,23 @@
-import { useCallback, useState } from 'react';
 import { ActionIcon, Text } from '@mantine/core';
 import { IconSettings } from '@tabler/icons-react';
-import type { CloudSubTab, DownloadTab } from '../types/downloads';
-import { useDownloads } from '../hooks/useDownloads';
-import { useLocalTransfers } from '../hooks/useLocalTransfers';
+import { useCallback, useState } from 'react';
 import { AddDownloadModal } from '../components/AddDownloadModal/AddDownloadModal';
 import { DownloadList } from '../components/DownloadList/DownloadList';
 import { DownloadTabs } from '../components/DownloadTabs/DownloadTabs';
 import { DownloadToolbar } from '../components/DownloadToolbar/DownloadToolbar';
 import { ErrorBanner } from '../components/ErrorBanner/ErrorBanner';
+import { SettingsModal } from '../components/SettingsModal/SettingsModal';
 import { StatusBar } from '../components/StatusBar/StatusBar';
+import { useDownloads } from '../hooks/useDownloads';
+import { useLocalTransfers } from '../hooks/useLocalTransfers';
+import type { CloudSubTab, DownloadTab } from '../types/downloads';
 import classes from './Downloads.module.css';
 
 export function DownloadsPage() {
   const [activeTab, setActiveTab] = useState<DownloadTab>('cloud');
   const [cloudSubTab, setCloudSubTab] = useState<CloudSubTab>('torrents');
   const [addModalOpen, setAddModalOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [dismissedErrors, setDismissedErrors] = useState<Set<string>>(new Set());
 
   const {
@@ -59,7 +61,7 @@ export function DownloadsPage() {
         setActiveTab('local');
       }
     },
-    [downloads, startTransfer],
+    [downloads, startTransfer]
   );
 
   // Filter cloud downloads by sub-tab
@@ -71,8 +73,7 @@ export function DownloadsPage() {
   const loading = activeTab === 'cloud' ? cloudLoading : localLoading;
 
   // Determine error to show (cloud or local, unless dismissed)
-  const activeError =
-    activeTab === 'cloud' ? cloudError : localError;
+  const activeError = activeTab === 'cloud' ? cloudError : localError;
   const errorKey = activeTab === 'cloud' ? 'cloud-error' : 'local-error';
   const showError = activeError !== null && !dismissedErrors.has(errorKey);
 
@@ -89,13 +90,23 @@ export function DownloadsPage() {
         <Text fw={600} size="sm">
           TorBox
         </Text>
-        <ActionIcon variant="subtle" size="md" color="gray" aria-label="Settings">
+        <ActionIcon
+          variant="subtle"
+          size="md"
+          color="gray"
+          aria-label="Settings"
+          onClick={() => setSettingsOpen(true)}
+        >
           <IconSettings size={18} stroke={2} />
         </ActionIcon>
       </header>
 
       {/* Toolbar */}
-      <DownloadToolbar onAdd={() => setAddModalOpen(true)} onRefresh={handleRefresh} />
+      <DownloadToolbar
+        onAdd={() => setAddModalOpen(true)}
+        onRefresh={handleRefresh}
+        onSettings={() => setSettingsOpen(true)}
+      />
 
       {/* Tabs */}
       <DownloadTabs
@@ -114,9 +125,7 @@ export function DownloadsPage() {
       {showError && (
         <ErrorBanner
           message={activeError!}
-          onDismiss={() =>
-            setDismissedErrors((prev) => new Set(prev).add(errorKey))
-          }
+          onDismiss={() => setDismissedErrors((prev) => new Set(prev).add(errorKey))}
         />
       )}
 
@@ -130,11 +139,7 @@ export function DownloadsPage() {
         onRemove={activeTab === 'cloud' ? removeDownload : removeTransfer}
         onRetry={activeTab === 'cloud' ? retryDownload : retryTransfer}
         onDownloadToDevice={activeTab === 'cloud' ? handleDownloadToDevice : undefined}
-        emptyTitle={
-          activeTab === 'cloud'
-            ? 'No cloud downloads yet'
-            : 'No local transfers yet'
-        }
+        emptyTitle={activeTab === 'cloud' ? 'No cloud downloads yet' : 'No local transfers yet'}
         emptyDescription={
           activeTab === 'cloud'
             ? 'Add a magnet link or torrent file to start downloading on TorBox.'
@@ -159,6 +164,9 @@ export function DownloadsPage() {
           void addDownload(name, type, '');
         }}
       />
+
+      {/* Settings modal */}
+      <SettingsModal opened={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
   );
 }
