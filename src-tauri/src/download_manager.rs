@@ -390,7 +390,7 @@ impl DownloadManager {
 fn download_type_to_api(type_str: &str) -> Result<(&'static str, &'static str), String> {
     match type_str {
         "torrent" | "torrents" => Ok(("torrents/requestdl", "torrent_id")),
-        "web" | "webdl" => Ok(("webdl/requestdl", "webdl_id")),
+        "web" | "webdl" => Ok(("webdl/requestdl", "web_id")),
         "usenet" => Ok(("usenet/requestdl", "usenet_id")),
         _ => Err(format!("Unsupported cloud download type: {}", type_str)),
     }
@@ -402,7 +402,7 @@ async fn request_torbox_download_link(
     download: &LocalDownload,
 ) -> Result<String, String> {
     let download_type = download.cloud_download_type.as_deref().unwrap_or("torrent");
-    let (path, body_key) = download_type_to_api(download_type)?;
+    let (path, id_key) = download_type_to_api(download_type)?;
     let download_id_num = download
         .cloud_download_id
         .trim_start_matches(|c: char| !c.is_ascii_digit());
@@ -411,20 +411,36 @@ async fn request_torbox_download_link(
         return Err("Invalid cloud download ID".to_string());
     }
 
-    let file_id = download
+    let selected_file_id = download
         .file_ids
         .as_ref()
         .and_then(|ids| ids.first())
-        .copied()
-        .unwrap_or(0);
+        .copied();
+
+    let mut query: Vec<(&str, String)> = vec![
+        ("token", api_key.to_string()),
+        (id_key, download_id_num.to_string()),
+    ];
+    if let Some(file_id) = selected_file_id {
+        query.push(("file_id", file_id.to_string()));
+    } else {
+        query.push(("zip_link", "true".to_string()));
+    }
 
     let response = client
-        .post(format!("https://api.torbox.app/v1/api/{}", path))
-        .header("Authorization", format!("Bearer {}", api_key))
-        .json(&serde_json::json!({ body_key: download_id_num, "file_id": file_id }))
+        .get(format!("https://api.torbox.app/v1/api/{}", path))
+        .query(&query)
         .send()
         .await
         .map_err(|e| format!("API request failed: {}", e))?;
+
+    let status = response.status();
+    if status == reqwest::StatusCode::METHOD_NOT_ALLOWED {
+        return Err(
+            "TorBox API returned 405 Method Not Allowed: requestdl must be a GET request."
+                .to_string(),
+        );
+    }
 
     let envelope: serde_json::Value = response
         .json()

@@ -380,7 +380,9 @@ export async function controlDownload(
   }
 }
 
-/** Request a temporary download link for a file within a download. */
+/** Request a temporary download link for a file within a download.
+ *  The TorBox requestdl endpoints require GET with query parameters.
+ */
 export async function requestFileDownloadLink(
   apiKey: string,
   type: CloudDownloadType,
@@ -388,16 +390,15 @@ export async function requestFileDownloadLink(
   fileId: number
 ): Promise<string> {
   const path = type === 'torrent' ? 'torrents/requestdl' : 'webdl/requestdl';
-  const bodyKey = type === 'torrent' ? 'torrent_id' : 'webdl_id';
+  const idKey = type === 'torrent' ? 'torrent_id' : 'web_id';
 
-  const response = await fetch(`${API_BASE}/${path}`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ [bodyKey]: downloadId, file_id: fileId }),
+  const params = new URLSearchParams({
+    token: apiKey,
+    [idKey]: String(downloadId),
+    file_id: String(fileId),
   });
+
+  const response = await fetch(`${API_BASE}/${path}?${params.toString()}`);
 
   return extractData<string>(response);
 }
