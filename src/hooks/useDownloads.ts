@@ -1,113 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
-import type { CloudDownload, CloudDownloadStatus, CloudDownloadType } from '../types/downloads';
-
-/** Simulated API delay */
-const SIMULATED_DELAY_MS = 400;
-
-const MOCK_DOWNLOADS: CloudDownload[] = [
-  {
-    id: 'dl-1',
-    name: 'ubuntu-24.04.1-desktop-amd64.iso',
-    type: 'torrent',
-    status: 'downloading',
-    progress: 67,
-    sizeBytes: 5_700_000_000,
-    speedBytesPerSec: 8_400_000,
-    etaSeconds: 224,
-    seeders: 142,
-    peers: 38,
-    addedAt: new Date('2026-06-15T14:30:00Z'),
-    fileCount: 1,
-    paused: false,
-  },
-  {
-    id: 'dl-2',
-    name: 'debian-12.5.0-amd64-netinst.iso',
-    type: 'torrent',
-    status: 'cached',
-    progress: 100,
-    sizeBytes: 3_800_000_000,
-    addedAt: new Date('2026-06-14T09:15:00Z'),
-    fileCount: 3,
-    paused: false,
-  },
-  {
-    id: 'dl-3',
-    name: 'archlinux-2026.06.01-x86_64.iso',
-    type: 'torrent',
-    status: 'error',
-    progress: 42,
-    sizeBytes: 1_200_000_000,
-    speedBytesPerSec: 2_100_000,
-    etaSeconds: 331,
-    errorMessage: 'Tracker connection timed out',
-    seeders: 12,
-    peers: 5,
-    addedAt: new Date('2026-06-16T08:00:00Z'),
-    fileCount: 1,
-    paused: false,
-  },
-  {
-    id: 'dl-4',
-    name: 'fedora-40-workstation-live-x86_64.iso',
-    type: 'torrent',
-    status: 'queued',
-    progress: 0,
-    sizeBytes: 2_100_000_000,
-    seeders: 89,
-    peers: 0,
-    addedAt: new Date('2026-06-16T10:45:00Z'),
-    fileCount: 1,
-    paused: false,
-  },
-  {
-    id: 'dl-5',
-    name: 'pop-os_24.04_amd64_nvidia.iso',
-    type: 'torrent',
-    status: 'cached',
-    progress: 100,
-    sizeBytes: 2_800_000_000,
-    addedAt: new Date('2026-06-13T22:10:00Z'),
-    fileCount: 1,
-    paused: false,
-  },
-  {
-    id: 'dl-6',
-    name: 'project-files-2026.zip',
-    type: 'web',
-    status: 'downloading',
-    progress: 31,
-    sizeBytes: 850_000_000,
-    speedBytesPerSec: 12_500_000,
-    etaSeconds: 47,
-    addedAt: new Date('2026-06-16T11:20:00Z'),
-    fileCount: 5,
-    paused: false,
-  },
-  {
-    id: 'dl-7',
-    name: 'dataset-backup.tar.gz',
-    type: 'web',
-    status: 'queued',
-    progress: 0,
-    sizeBytes: 15_000_000_000,
-    addedAt: new Date('2026-06-16T11:25:00Z'),
-    fileCount: 1,
-    paused: false,
-  },
-  {
-    id: 'dl-8',
-    name: 'presentation-slides.pdf',
-    type: 'web',
-    status: 'error',
-    progress: 0,
-    sizeBytes: 45_000_000,
-    errorMessage: 'URL returned 404',
-    addedAt: new Date('2026-06-16T10:50:00Z'),
-    fileCount: 1,
-    paused: false,
-  },
-];
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { addTorrentMagnet, addWebDownload, controlDownload, fetchDownloads } from '../api/torbox';
+import type { CloudDownload, CloudDownloadType } from '../types/downloads';
 
 export interface UseDownloadsReturn {
   downloads: CloudDownload[];
@@ -131,77 +24,119 @@ export interface UseDownloadsReturn {
   };
 }
 
-function simulateApiCall<T>(data: T): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(data), SIMULATED_DELAY_MS));
-}
-
-export function useDownloads(): UseDownloadsReturn {
+export function useDownloads(apiKey: string): UseDownloadsReturn {
   const [downloads, setDownloads] = useState<CloudDownload[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const load = useCallback(async () => {
+    if (!apiKey) {
+      setDownloads([]);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
-      const data = await simulateApiCall(MOCK_DOWNLOADS);
-      setDownloads(data);
-    } catch {
-      setError('Failed to load downloads');
+      const data = await fetchDownloads(apiKey);
+      if (mountedRef.current) {
+        setDownloads(data);
+      }
+    } catch (err) {
+      if (mountedRef.current) {
+        setError(err instanceof Error ? err.message : String(err));
+      }
     } finally {
-      setLoading(false);
+      if (mountedRef.current) {
+        setLoading(false);
+      }
     }
-  }, []);
+  }, [apiKey]);
 
+  // Initial load and reload when apiKey changes
   useEffect(() => {
     void load();
   }, [load]);
 
-  const addDownload = useCallback(async (name: string, type: CloudDownloadType) => {
-    const newDownload: CloudDownload = {
-      id: `dl-${Date.now()}`,
-      name,
-      type,
-      status: 'queued',
-      progress: 0,
-      sizeBytes: 0,
-      addedAt: new Date(),
-      fileCount: 1,
-      paused: false,
-    };
-    setDownloads((prev) => [newDownload, ...prev]);
-  }, []);
+  const addDownload = useCallback(
+    async (_name: string, type: CloudDownloadType, url: string) => {
+      if (!apiKey) {
+        return;
+      }
 
-  const updateStatus = useCallback(
-    (id: string, status: CloudDownloadStatus, paused = false, extra?: Partial<CloudDownload>) => {
-      setDownloads((prev) =>
-        prev.map((d) => (d.id === id ? { ...d, status, paused, ...extra } : d))
-      );
+      if (type === 'torrent') {
+        await addTorrentMagnet(apiKey, url);
+      } else {
+        await addWebDownload(apiKey, url);
+      }
+      // Refresh the list to show the new download
+      await load();
     },
-    []
+    [apiKey, load]
   );
 
   const pauseDownload = useCallback(
-    (id: string) => updateStatus(id, 'downloading', true),
-    [updateStatus]
+    (id: string) => {
+      const download = downloads.find((d) => d.id === id);
+      if (!download || !apiKey || download.type !== 'torrent') {
+        return;
+      }
+      void controlDownload(apiKey, id, 'torrent', 'pause').then(() => load());
+    },
+    [apiKey, downloads, load]
   );
+
   const resumeDownload = useCallback(
-    (id: string) => updateStatus(id, 'downloading', false),
-    [updateStatus]
+    (id: string) => {
+      const download = downloads.find((d) => d.id === id);
+      if (!download || !apiKey || download.type !== 'torrent') {
+        return;
+      }
+      void controlDownload(apiKey, id, 'torrent', 'resume').then(() => load());
+    },
+    [apiKey, downloads, load]
   );
+
+  const removeDownload = useCallback(
+    (id: string) => {
+      const download = downloads.find((d) => d.id === id);
+      if (!download || !apiKey) {
+        return;
+      }
+      void controlDownload(apiKey, id, download.type, 'delete').then(() => load());
+    },
+    [apiKey, downloads, load]
+  );
+
   const retryDownload = useCallback(
-    (id: string) =>
-      updateStatus(id, 'downloading', false, { progress: 0, errorMessage: undefined }),
-    [updateStatus]
+    (id: string) => {
+      // Retry: resume if paused, or just refresh if errored
+      const download = downloads.find((d) => d.id === id);
+      if (!download || !apiKey) {
+        return;
+      }
+      if (download.type === 'torrent') {
+        void controlDownload(apiKey, id, 'torrent', 'resume').then(() => load());
+      } else {
+        // Web downloads only support delete — just refresh
+        void load();
+      }
+    },
+    [apiKey, downloads, load]
   );
-  const removeDownload = useCallback((id: string) => {
-    setDownloads((prev) => prev.filter((d) => d.id !== id));
-  }, []);
 
   const refresh = useCallback(async () => {
-    await simulateApiCall(null);
-    // In a real app, refetch from API. For mock, just keep data.
-  }, []);
+    await load();
+  }, [load]);
 
   const byType = useCallback(
     (type: CloudDownloadType) => downloads.filter((d) => d.type === type),

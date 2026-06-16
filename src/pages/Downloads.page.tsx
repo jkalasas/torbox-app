@@ -10,6 +10,7 @@ import { SettingsModal } from '../components/SettingsModal/SettingsModal';
 import { StatusBar } from '../components/StatusBar/StatusBar';
 import { useDownloads } from '../hooks/useDownloads';
 import { useLocalTransfers } from '../hooks/useLocalTransfers';
+import { useSettings } from '../hooks/useSettings';
 import type { CloudSubTab, DownloadTab } from '../types/downloads';
 import classes from './Downloads.module.css';
 
@@ -19,6 +20,8 @@ export function DownloadsPage() {
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [dismissedErrors, setDismissedErrors] = useState<Set<string>>(new Set());
+
+  const { apiKey } = useSettings();
 
   const {
     downloads,
@@ -32,7 +35,7 @@ export function DownloadsPage() {
     refresh: refreshCloud,
     byType,
     counts: cloudCounts,
-  } = useDownloads();
+  } = useDownloads(apiKey);
 
   const {
     transfers,
@@ -160,8 +163,8 @@ export function DownloadsPage() {
       <AddDownloadModal
         opened={addModalOpen}
         onClose={() => setAddModalOpen(false)}
-        onAdd={(name, type) => {
-          void addDownload(name, type, '');
+        onAdd={(name, type, url) => {
+          void addDownload(name, type, url);
         }}
       />
 
