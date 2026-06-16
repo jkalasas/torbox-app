@@ -1,7 +1,7 @@
 use rusqlite::{params, Connection};
 use std::sync::Mutex;
 
-use crate::models::{DownloadSettings, DownloadStatus, LocalDownload};
+use crate::models::{ColorMode, DownloadSettings, DownloadStatus, LocalDownload};
 
 pub struct Persistence {
     conn: Mutex<Connection>,
@@ -124,6 +124,13 @@ impl Persistence {
                 "bandwidth_limit" => settings.bandwidth_limit = value.parse().unwrap_or(0),
                 "notify_on_complete" => settings.notify_on_complete = value == "true",
                 "open_folder_on_complete" => settings.open_folder_on_complete = value == "true",
+                "color_mode" => {
+                    settings.color_mode = match value.as_str() {
+                        "auto" => ColorMode::Auto,
+                        "light" => ColorMode::Light,
+                        _ => ColorMode::Dark,
+                    };
+                }
                 _ => {}
             }
         }
@@ -155,6 +162,14 @@ impl Persistence {
                     "true"
                 } else {
                     "false"
+                },
+            ),
+            (
+                "color_mode",
+                match settings.color_mode {
+                    ColorMode::Auto => "auto",
+                    ColorMode::Dark => "dark",
+                    ColorMode::Light => "light",
                 },
             ),
         ];
@@ -437,5 +452,58 @@ fn str_to_status(s: &str) -> Result<DownloadStatus, rusqlite::Error> {
                 format!("unknown status: {}", s),
             )),
         )),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    fn temp_db_path() -> String {
+        let mut path = PathBuf::from(std::env::temp_dir());
+        path.push(format!("torbox_settings_test_{}.db", uuid::Uuid::new_v4()));
+        path.to_string_lossy().to_string()
+    }
+
+    #[test]
+    fn save_and_load_settings_defaults_to_dark_color_mode() {
+        let persistence = Persistence::new(&temp_db_path()).unwrap();
+        let loaded = persistence.get_settings().unwrap();
+        assert_eq!(loaded.color_mode, ColorMode::Dark);
+    }
+
+    #[test]
+    fn save_and_load_settings_persists_light_color_mode() {
+        let persistence = Persistence::new(&temp_db_path()).unwrap();
+        let settings = DownloadSettings {
+            api_key: "key".to_string(),
+            download_dir: "/tmp".to_string(),
+            max_concurrent: 5,
+            bandwidth_limit: 1000,
+            notify_on_complete: false,
+            open_folder_on_complete: false,
+            color_mode: ColorMode::Light,
+        };
+        persistence.save_settings(&settings).unwrap();
+        let loaded = persistence.get_settings().unwrap();
+        assert_eq!(loaded, settings);
+    }
+
+    #[test]
+    fn save_and_load_settings_persists_auto_color_mode() {
+        let persistence = Persistence::new(&temp_db_path()).unwrap();
+        let settings = DownloadSettings {
+            api_key: "key".to_string(),
+            download_dir: "/tmp".to_string(),
+            max_concurrent: 5,
+            bandwidth_limit: 1000,
+            notify_on_complete: false,
+            open_folder_on_complete: false,
+            color_mode: ColorMode::Auto,
+        };
+        persistence.save_settings(&settings).unwrap();
+        let loaded = persistence.get_settings().unwrap();
+        assert_eq!(loaded, settings);
     }
 }

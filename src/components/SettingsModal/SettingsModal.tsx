@@ -6,12 +6,13 @@ import {
   Group,
   Modal,
   NumberInput,
+  SegmentedControl,
   Text,
   TextInput,
 } from '@mantine/core';
 import { IconCheck, IconEye, IconEyeOff, IconFolder, IconKey } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
-import type { DownloadSettings } from '../../types/downloads';
+import type { ColorMode, DownloadSettings } from '../../types/downloads';
 import classes from './SettingsModal.module.css';
 
 export interface SettingsModalProps {
@@ -107,6 +108,27 @@ export function SettingsModal({
         <Text size="xs" c="dimmed" mb="md">
           Find your API key in your TorBox account settings.
         </Text>
+
+        <Divider mb="md" />
+
+        {/* Appearance section */}
+        <Text fw={600} size="sm" mb="md">
+          Appearance
+        </Text>
+
+        <Text component="label" size="sm" fw={500} display="block" mb={6}>
+          Color mode
+        </Text>
+        <SegmentedControl
+          value={localSettings.color_mode}
+          onChange={(value) => update('color_mode', value as ColorMode)}
+          data={[
+            { value: 'auto', label: 'System' },
+            { value: 'dark', label: 'Dark' },
+            { value: 'light', label: 'Light' },
+          ]}
+          mb="md"
+        />
 
         <Divider mb="md" />
 

@@ -1,6 +1,20 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ColorMode {
+    Auto,
+    Dark,
+    Light,
+}
+
+impl Default for ColorMode {
+    fn default() -> Self {
+        ColorMode::Dark
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct DownloadSettings {
     pub api_key: String,
     pub download_dir: String,
@@ -8,6 +22,7 @@ pub struct DownloadSettings {
     pub bandwidth_limit: u64,
     pub notify_on_complete: bool,
     pub open_folder_on_complete: bool,
+    pub color_mode: ColorMode,
 }
 
 impl Default for DownloadSettings {
@@ -19,6 +34,7 @@ impl Default for DownloadSettings {
             bandwidth_limit: 0,
             notify_on_complete: true,
             open_folder_on_complete: true,
+            color_mode: ColorMode::default(),
         }
     }
 }

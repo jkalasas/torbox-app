@@ -1,5 +1,13 @@
 import { invoke } from '@tauri-apps/api/core';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { DownloadSettings } from '../types/downloads';
 
 const DEFAULTS: DownloadSettings = {
@@ -9,6 +17,7 @@ const DEFAULTS: DownloadSettings = {
   bandwidth_limit: 0,
   notify_on_complete: true,
   open_folder_on_complete: true,
+  color_mode: 'dark',
 };
 
 export interface UseSettingsReturn {
@@ -21,7 +30,9 @@ export interface UseSettingsReturn {
   saveSettings: () => Promise<void>;
 }
 
-export function useSettings(): UseSettingsReturn {
+const SettingsContext = createContext<UseSettingsReturn | null>(null);
+
+export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<DownloadSettings>(DEFAULTS);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -40,9 +51,7 @@ export function useSettings(): UseSettingsReturn {
       }
     };
     void init();
-  }, []);
 
-  useEffect(() => {
     return () => {
       if (savedTimerRef.current !== null) {
         window.clearTimeout(savedTimerRef.current);
@@ -65,7 +74,9 @@ export function useSettings(): UseSettingsReturn {
       savedTimerRef.current = null;
     }
     try {
-      await invoke('update_settings', { settings: settings as unknown as Record<string, unknown> });
+      await invoke('update_settings', {
+        settings: settings as unknown as Record<string, unknown>,
+      });
       setSaving(false);
       setSaved(true);
       savedTimerRef.current = window.setTimeout(() => setSaved(false), 2000);
@@ -75,5 +86,26 @@ export function useSettings(): UseSettingsReturn {
     }
   }, [settings]);
 
-  return { settings, saving, saved, ready, error, updateSetting, saveSettings };
+  const value = useMemo<UseSettingsReturn>(
+    () => ({
+      settings,
+      saving,
+      saved,
+      ready,
+      error,
+      updateSetting,
+      saveSettings,
+    }),
+    [settings, saving, saved, ready, error, updateSetting, saveSettings]
+  );
+
+  return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
+}
+
+export function useSettings(): UseSettingsReturn {
+  const context = useContext(SettingsContext);
+  if (!context) {
+    throw new Error('useSettings must be used within a SettingsProvider');
+  }
+  return context;
 }

@@ -66,6 +66,9 @@ export type DownloadTab = 'cloud' | 'local';
 /** Cloud sub-tab */
 export type CloudSubTab = 'torrents' | 'web';
 
+/** Available app color modes */
+export type ColorMode = 'auto' | 'dark' | 'light';
+
 /** Frontend-facing settings synchronized with Rust */
 export interface DownloadSettings {
   api_key: string;
@@ -74,4 +77,5 @@ export interface DownloadSettings {
   bandwidth_limit: number; // KB/s, 0 = unlimited
   notify_on_complete: boolean;
   open_folder_on_complete: boolean;
+  color_mode: ColorMode;
 }
