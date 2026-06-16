@@ -33,7 +33,7 @@ export function DownloadsPage() {
   >('all');
   const [fileListDownload, setFileListDownload] = useState<CloudDownload | null>(null);
 
-  const { settings, updateSetting, saveSettings, saving, saved, ready } = useSettings();
+  const { settings, updateSetting, saveSettings, saving, saved, ready, error } = useSettings();
 
   const settingsReady = ready && settings.api_key.length > 0;
 
@@ -286,12 +286,13 @@ export function DownloadsPage() {
       <SettingsModal
         opened={settingsOpen}
         onClose={() => setSettingsOpen(false)}
-        savedApiKey={settings.api_key}
+        settings={settings}
         saving={saving}
         saved={saved}
         ready={ready}
+        error={error}
+        onSettingChange={updateSetting}
         onSave={saveSettings}
-        onApiKeyChange={(key) => updateSetting('api_key', key)}
       />
     </div>
   );

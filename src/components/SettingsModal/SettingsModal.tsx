@@ -1,88 +1,198 @@
-import { ActionIcon, Button, Modal, TextInput } from '@mantine/core';
-import { IconCheck, IconEye, IconEyeOff, IconKey } from '@tabler/icons-react';
+import {
+  ActionIcon,
+  Button,
+  Checkbox,
+  Divider,
+  Group,
+  Modal,
+  NumberInput,
+  Text,
+  TextInput,
+} from '@mantine/core';
+import { IconCheck, IconEye, IconEyeOff, IconFolder, IconKey } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
+import type { DownloadSettings } from '../../types/downloads';
 import classes from './SettingsModal.module.css';
 
 export interface SettingsModalProps {
   opened: boolean;
   onClose: () => void;
-  savedApiKey: string;
+  settings: DownloadSettings;
   saving: boolean;
   saved: boolean;
   ready: boolean;
+  error: string | null;
+  onSettingChange: <K extends keyof DownloadSettings>(key: K, value: DownloadSettings[K]) => void;
   onSave: () => Promise<void>;
-  onApiKeyChange: (key: string) => void;
 }
 
 export function SettingsModal({
   opened,
   onClose,
-  savedApiKey,
+  settings,
   saving,
   saved,
   ready,
+  error,
+  onSettingChange,
   onSave,
-  onApiKeyChange,
 }: SettingsModalProps) {
-  const [visible, setVisible] = useState(false);
+  const [localSettings, setLocalSettings] = useState<DownloadSettings>(settings);
+  const [initialSettings, setInitialSettings] = useState<DownloadSettings>(settings);
+  const [apiKeyVisible, setApiKeyVisible] = useState(false);
 
-  // Sync local input when modal opens or store loads
-  const [localKey, setLocalKey] = useState('');
+  // Sync local state when modal opens
   useEffect(() => {
     if (opened && ready) {
-      setLocalKey(savedApiKey);
+      setLocalSettings(settings);
+      setInitialSettings(settings);
     }
-  }, [opened, ready, savedApiKey]);
+  }, [opened, ready, settings]);
 
-  // Keep parent state in sync with local input
-  useEffect(() => {
-    onApiKeyChange(localKey);
-  }, [localKey, onApiKeyChange]);
+  // Push local changes up to parent for save tracking
+  const update = <K extends keyof DownloadSettings>(key: K, value: DownloadSettings[K]) => {
+    setLocalSettings((prev) => ({ ...prev, [key]: value }));
+    onSettingChange(key, value);
+  };
 
-  const hasChanges = localKey !== savedApiKey;
+  const hasChanges = JSON.stringify(localSettings) !== JSON.stringify(initialSettings);
 
-  const handleSave = async () => {
-    await onSave();
+  const handleBrowse = async () => {
+    try {
+      const { open } = await import('@tauri-apps/plugin-dialog');
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        title: 'Select download directory',
+      });
+      if (selected && typeof selected === 'string') {
+        update('download_dir', selected);
+      }
+    } catch {
+      // Dialog plugin not available (mobile/web fallback)
+    }
   };
 
   return (
     <Modal opened={opened} onClose={onClose} title="Settings" size="sm" centered>
       <div className={classes.content}>
-        <div className={classes.field}>
-          <p className={classes.label}>API Key</p>
-          <TextInput
-            type={visible ? 'text' : 'password'}
-            placeholder="Paste your TorBox API key"
-            value={localKey}
-            onChange={(e) => setLocalKey(e.currentTarget.value)}
-            leftSection={<IconKey size={16} stroke={2} />}
-            rightSection={
-              <ActionIcon
-                variant="subtle"
-                size="sm"
-                color="gray"
-                onClick={() => setVisible((v) => !v)}
-                aria-label={visible ? 'Hide API key' : 'Show API key'}
-              >
-                {visible ? <IconEyeOff size={16} stroke={2} /> : <IconEye size={16} stroke={2} />}
-              </ActionIcon>
-            }
-            aria-label="API key"
-          />
-          <p className={classes.helpText}>Find your API key in your TorBox account settings.</p>
-        </div>
+        {/* API Key section */}
+        <Text fw={600} size="sm" mb={4}>
+          API Key
+        </Text>
+        <TextInput
+          type={apiKeyVisible ? 'text' : 'password'}
+          placeholder="Paste your TorBox API key"
+          value={localSettings.api_key}
+          onChange={(e) => update('api_key', e.currentTarget.value)}
+          leftSection={<IconKey size={16} stroke={2} />}
+          rightSection={
+            <ActionIcon
+              variant="subtle"
+              size="sm"
+              color="gray"
+              onClick={() => setApiKeyVisible((v) => !v)}
+              aria-label={apiKeyVisible ? 'Hide API key' : 'Show API key'}
+            >
+              {apiKeyVisible ? (
+                <IconEyeOff size={16} stroke={2} />
+              ) : (
+                <IconEye size={16} stroke={2} />
+              )}
+            </ActionIcon>
+          }
+          aria-label="API key"
+          mb={4}
+        />
+        <Text size="xs" c="dimmed" mb="md">
+          Find your API key in your TorBox account settings.
+        </Text>
 
-        <div className={classes.actions}>
+        <Divider mb="md" />
+
+        {/* Downloads section */}
+        <Text fw={600} size="sm" mb="md">
+          Downloads
+        </Text>
+
+        <Text component="label" size="sm" fw={500} display="block" mb={2}>
+          Download directory
+        </Text>
+        <Text size="xs" c="dimmed" mb={6}>
+          Where files are saved on your device
+        </Text>
+        <Group gap="xs" mb="md" wrap="nowrap">
+          <TextInput
+            style={{ flex: 1 }}
+            value={localSettings.download_dir}
+            onChange={(e) => update('download_dir', e.currentTarget.value)}
+            placeholder="~/Downloads/TorBox"
+          />
+          <Button
+            variant="default"
+            size="compact-sm"
+            onClick={handleBrowse}
+            leftSection={<IconFolder size={14} />}
+          >
+            Browse
+          </Button>
+        </Group>
+
+        <NumberInput
+          label="Max concurrent downloads"
+          description="How many files to download at once"
+          value={localSettings.max_concurrent}
+          onChange={(v) => update('max_concurrent', Number(v) || 1)}
+          min={1}
+          max={10}
+          mb="md"
+        />
+
+        <NumberInput
+          label="Global bandwidth limit"
+          description="Cap total download speed. 0 = unlimited"
+          value={localSettings.bandwidth_limit}
+          onChange={(v) => update('bandwidth_limit', Number(v) || 0)}
+          min={0}
+          suffix=" KB/s"
+          mb="md"
+        />
+
+        <Text size="sm" fw={500} mb="xs">
+          When download completes
+        </Text>
+        <Checkbox
+          label="Show notification"
+          checked={localSettings.notify_on_complete}
+          onChange={(e) => update('notify_on_complete', e.currentTarget.checked)}
+          mb="xs"
+        />
+        <Checkbox
+          label="Open destination folder"
+          checked={localSettings.open_folder_on_complete}
+          onChange={(e) => update('open_folder_on_complete', e.currentTarget.checked)}
+          mb="md"
+        />
+
+        {error && (
+          <Text size="xs" c="red" mb="md">
+            {error}
+          </Text>
+        )}
+
+        <Group justify="flex-end" align="center">
           {saved && (
-            <span className={classes.savedIndicator}>
+            <Group gap={4}>
               <IconCheck size={14} stroke={2.5} />
-              Saved
-            </span>
+              <Text size="xs" c="green">
+                Saved
+              </Text>
+            </Group>
           )}
-          <Button onClick={handleSave} loading={saving} disabled={!hasChanges} size="compact-sm">
+          <Button onClick={onSave} loading={saving} disabled={!hasChanges} size="compact-sm">
             Save
           </Button>
-        </div>
+        </Group>
       </div>
     </Modal>
   );

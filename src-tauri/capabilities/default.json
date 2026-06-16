@@ -9,6 +9,7 @@
     "core:default",
     "store:default",
     "sql:default",
+    "dialog:default",
     "local-downloads",
     {
       "identifier": "http:default",
