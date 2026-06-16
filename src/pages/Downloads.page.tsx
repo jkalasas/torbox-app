@@ -21,7 +21,9 @@ export function DownloadsPage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [dismissedErrors, setDismissedErrors] = useState<Set<string>>(new Set());
 
-  const { apiKey } = useSettings();
+  const { savedApiKey, setApiKey, saveApiKey, saving, saved, ready } = useSettings();
+
+  const settingsReady = ready && savedApiKey.length > 0;
 
   const {
     downloads,
@@ -35,7 +37,7 @@ export function DownloadsPage() {
     refresh: refreshCloud,
     byType,
     counts: cloudCounts,
-  } = useDownloads(apiKey);
+  } = useDownloads(savedApiKey);
 
   const {
     transfers,
@@ -142,13 +144,25 @@ export function DownloadsPage() {
         onRemove={activeTab === 'cloud' ? removeDownload : removeTransfer}
         onRetry={activeTab === 'cloud' ? retryDownload : retryTransfer}
         onDownloadToDevice={activeTab === 'cloud' ? handleDownloadToDevice : undefined}
-        emptyTitle={activeTab === 'cloud' ? 'No cloud downloads yet' : 'No local transfers yet'}
+        emptyTitle={
+          activeTab === 'cloud'
+            ? settingsReady
+              ? 'No cloud downloads yet'
+              : 'API key required'
+            : 'No local transfers yet'
+        }
         emptyDescription={
           activeTab === 'cloud'
-            ? 'Add a magnet link or torrent file to start downloading on TorBox.'
+            ? settingsReady
+              ? 'Add a magnet link or torrent file to start downloading on TorBox.'
+              : 'Set your TorBox API key in Settings to get started.'
             : 'Download cached files from TorBox to your device.'
         }
-        onAdd={() => setAddModalOpen(true)}
+        onAdd={
+          activeTab === 'cloud' && !settingsReady
+            ? () => setSettingsOpen(true)
+            : () => setAddModalOpen(true)
+        }
       />
 
       {/* Status bar */}
@@ -164,12 +178,26 @@ export function DownloadsPage() {
         opened={addModalOpen}
         onClose={() => setAddModalOpen(false)}
         onAdd={(name, type, url) => {
+          if (!savedApiKey) {
+            setAddModalOpen(false);
+            setSettingsOpen(true);
+            return;
+          }
           void addDownload(name, type, url);
         }}
       />
 
       {/* Settings modal */}
-      <SettingsModal opened={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <SettingsModal
+        opened={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        savedApiKey={savedApiKey}
+        saving={saving}
+        saved={saved}
+        ready={ready}
+        onSave={saveApiKey}
+        onApiKeyChange={setApiKey}
+      />
     </div>
   );
 }

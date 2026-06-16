@@ -1,16 +1,29 @@
 import { ActionIcon, Button, Modal, TextInput } from '@mantine/core';
 import { IconCheck, IconEye, IconEyeOff, IconKey } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
-import { useSettings } from '../../hooks/useSettings';
 import classes from './SettingsModal.module.css';
 
 export interface SettingsModalProps {
   opened: boolean;
   onClose: () => void;
+  savedApiKey: string;
+  saving: boolean;
+  saved: boolean;
+  ready: boolean;
+  onSave: () => Promise<void>;
+  onApiKeyChange: (key: string) => void;
 }
 
-export function SettingsModal({ opened, onClose }: SettingsModalProps) {
-  const { savedApiKey, setApiKey, saveApiKey, saving, saved, ready } = useSettings();
+export function SettingsModal({
+  opened,
+  onClose,
+  savedApiKey,
+  saving,
+  saved,
+  ready,
+  onSave,
+  onApiKeyChange,
+}: SettingsModalProps) {
   const [visible, setVisible] = useState(false);
 
   // Sync local input when modal opens or store loads
@@ -21,15 +34,15 @@ export function SettingsModal({ opened, onClose }: SettingsModalProps) {
     }
   }, [opened, ready, savedApiKey]);
 
-  // Keep hook state in sync with local input
+  // Keep parent state in sync with local input
   useEffect(() => {
-    setApiKey(localKey);
-  }, [localKey, setApiKey]);
+    onApiKeyChange(localKey);
+  }, [localKey, onApiKeyChange]);
 
   const hasChanges = localKey !== savedApiKey;
 
   const handleSave = async () => {
-    await saveApiKey();
+    await onSave();
   };
 
   return (
