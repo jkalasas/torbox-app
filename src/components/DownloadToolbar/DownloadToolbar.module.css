@@ -1,0 +1,65 @@
+/* ── Download Toolbar ───────────────────────────────────────── */
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background-color: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.addButton {
+  flex-shrink: 0;
+}
+
+.magnetInput {
+  flex: 1;
+  min-width: 0;
+}
+
+.refreshButton {
+  flex-shrink: 0;
+  color: var(--ink-muted);
+}
+
+.refreshButton:hover {
+  color: var(--ink);
+}
+
+/* ── Mobile (< 600px) ────────────────────────────────────── */
+
+@media (max-width: 599px) {
+  .toolbar {
+    padding: 0.5rem 0.75rem;
+    /* On mobile the toolbar becomes a bottom bar */
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: var(--surface);
+    border-top: 1px solid var(--border);
+    border-bottom: none;
+    z-index: 100;
+    justify-content: center;
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  }
+
+  .addButton {
+    width: 100%;
+    max-width: 360px;
+  }
+
+  .addButton button {
+    --button-height: 44px;
+    width: 100%;
+  }
+
+  .magnetInput {
+    display: none;
+  }
+
+  .refreshButton {
+    display: none;
+  }
+}

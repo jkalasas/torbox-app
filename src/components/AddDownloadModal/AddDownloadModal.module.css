@@ -1,0 +1,86 @@
+/* ── Add Download Modal ─────────────────────────────────────── */
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.sectionLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.25rem;
+}
+
+.urlInput {
+  width: 100%;
+}
+
+.typeToggle {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.typeButton {
+  flex: 1;
+}
+
+.dropZone {
+  width: 100%;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  padding: 2rem 1rem;
+  text-align: center;
+  color: var(--ink-muted);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  background: none;
+  font-family: inherit;
+  transition:
+    border-color 150ms ease-out,
+    background-color 150ms ease-out;
+}
+
+.dropZone:hover {
+  border-color: var(--primary);
+  background-color: var(--surface);
+}
+
+.dropZoneIcon {
+  color: var(--ink-muted);
+  margin-bottom: 0.5rem;
+}
+
+.dropZoneText {
+  font-size: 0.8125rem;
+  color: var(--ink-muted);
+}
+
+.dropZoneHint {
+  font-size: 0.75rem;
+  color: var(--ink-muted);
+  opacity: 0.6;
+  margin-top: 0.25rem;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+/* ── Mobile (bottom sheet) ────────────────────────────────── */
+
+@media (max-width: 599px) {
+  .typeToggle {
+    flex-direction: column;
+  }
+
+  .dropZone {
+    padding: 1.5rem 1rem;
+  }
+}

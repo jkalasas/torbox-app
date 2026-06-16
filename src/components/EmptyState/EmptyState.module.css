@@ -1,0 +1,58 @@
+/* ── Empty State ────────────────────────────────────────────── */
+
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1.5rem;
+  text-align: center;
+  flex: 1;
+  min-height: 200px;
+}
+
+.iconWrapper {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-muted);
+  margin-bottom: 1rem;
+}
+
+.title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0 0 0.375rem;
+  line-height: 1.3;
+}
+
+.description {
+  font-size: 0.8125rem;
+  color: var(--ink-muted);
+  margin: 0 0 1.25rem;
+  max-width: 320px;
+  line-height: 1.5;
+}
+
+.action {
+  --button-height: 36px;
+}
+
+@media (max-width: 599px) {
+  .wrapper {
+    padding: 2.5rem 1.5rem;
+  }
+
+  .description {
+    font-size: 0.875rem;
+  }
+
+  .action {
+    --button-height: 44px;
+    width: 100%;
+    max-width: 280px;
+  }
+}

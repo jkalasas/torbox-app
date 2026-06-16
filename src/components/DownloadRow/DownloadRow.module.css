@@ -1,0 +1,261 @@
+/* ── Download Row ─────────────────────────────────────────── */
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 0.75rem;
+  background-color: var(--surface);
+  border-bottom: 1px solid var(--border);
+  transition: background-color 150ms ease-out;
+  min-height: 48px;
+  cursor: default;
+  position: relative;
+}
+
+.row:hover {
+  background-color: var(--surface-elevated);
+}
+
+.row:hover .actions {
+  opacity: 1;
+}
+
+/* Status indicator dot */
+.dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.dotDownloading {
+  background-color: var(--accent);
+}
+
+.dotQueued {
+  background-color: var(--warning);
+}
+
+.dotCached,
+.dotComplete {
+  background-color: var(--success);
+}
+
+.dotError {
+  background-color: var(--danger);
+}
+
+.dotPaused {
+  background-color: var(--warning);
+  opacity: 0.6;
+}
+
+/* Content area */
+.content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+/* Top line: name + progress */
+.topLine {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.name {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-wrap: pretty;
+}
+
+/* Progress bar wrapper */
+.progressWrapper {
+  flex-shrink: 0;
+  width: 120px;
+}
+
+.progressFill {
+  width: 100%;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  border: none;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progressFill::-webkit-progress-bar {
+  background-color: var(--border);
+  border-radius: 2px;
+}
+
+.progressFill::-webkit-progress-value {
+  background-color: var(--primary);
+  border-radius: 2px;
+  transition: width 300ms ease-out;
+}
+
+.progressFill::-moz-progress-bar {
+  background-color: var(--primary);
+  border-radius: 2px;
+  transition: width 300ms ease-out;
+}
+
+.progressFillComplete::-webkit-progress-value {
+  background-color: var(--success);
+}
+
+.progressFillComplete::-moz-progress-bar {
+  background-color: var(--success);
+}
+
+.progressFillError::-webkit-progress-value {
+  background-color: var(--danger);
+}
+
+.progressFillError::-moz-progress-bar {
+  background-color: var(--danger);
+}
+
+.progressPercent {
+  font-size: 0.75rem;
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+  margin-top: 0.125rem;
+  text-align: right;
+}
+
+/* Metadata line */
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.metaItem {
+  font-size: 0.75rem;
+  color: var(--ink-muted);
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.metaMono {
+  font-family: var(--font-mono);
+}
+
+.metaSeparator {
+  color: var(--border-strong);
+  font-size: 0.75rem;
+  user-select: none;
+}
+
+/* Seeders/peers */
+.peerInfo {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--ink-muted);
+}
+
+/* Error message */
+.errorText {
+  color: var(--danger);
+  font-size: 0.75rem;
+}
+
+/* Action buttons (visible on hover, always visible on touch) */
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  flex-shrink: 0;
+  min-width: 92px;
+  opacity: 0;
+  transition: opacity 150ms ease-out;
+}
+
+.actionButton {
+  color: var(--ink-muted);
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.actionButton:hover {
+  color: var(--ink);
+}
+
+.actionButtonDanger:hover {
+  color: var(--danger);
+}
+
+/* Download to device button */
+.downloadToDevice {
+  flex-shrink: 0;
+}
+
+/* ── Mobile (< 600px) ────────────────────────────────────── */
+
+@media (max-width: 599px) {
+  .row {
+    flex-wrap: wrap;
+    padding: 0.75rem;
+    gap: 0.5rem;
+    min-height: 56px;
+  }
+
+  .dot {
+    width: 10px;
+    height: 10px;
+  }
+
+  .topLine {
+    flex-wrap: wrap;
+  }
+
+  .name {
+    font-size: 0.9375rem;
+  }
+
+  .progressWrapper {
+    width: 100%;
+    order: 3;
+  }
+
+  .progressFill {
+    height: 6px;
+  }
+
+  .progressPercent {
+    display: none;
+  }
+
+  .meta {
+    width: 100%;
+    order: 2;
+  }
+
+  .actions {
+    opacity: 1;
+    order: 4;
+    min-width: 0;
+  }
+
+  .downloadToDevice {
+    order: 5;
+    width: 100%;
+  }
+}

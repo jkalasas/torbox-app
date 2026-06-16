@@ -1,0 +1,32 @@
+/* ── Status Bar ─────────────────────────────────────────────── */
+
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.375rem 0.75rem;
+  background-color: var(--bg);
+  border-top: 1px solid var(--border);
+  font-size: 0.75rem;
+  color: var(--ink-muted);
+}
+
+.stats {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+}
+
+.stat {
+  white-space: nowrap;
+}
+
+.statSeparator {
+  color: var(--border-strong);
+  user-select: none;
+}
+
+.statError {
+  color: var(--danger);
+}

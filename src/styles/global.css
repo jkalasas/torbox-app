@@ -3,26 +3,26 @@
 
 :root {
   /* Surface */
-  --bg: oklch(1 0 0);
-  --surface: oklch(0.97 0 0);
-  --surface-elevated: oklch(1 0 0);
-  --border: oklch(0.88 0 0);
-  --border-strong: oklch(0.75 0 0);
+  --bg: oklch(100% 0 0deg);
+  --surface: oklch(97% 0 0deg);
+  --surface-elevated: oklch(100% 0 0deg);
+  --border: oklch(88% 0 0deg);
+  --border-strong: oklch(75% 0 0deg);
 
   /* Ink */
-  --ink: oklch(0.15 0 0);
-  --ink-muted: oklch(0.50 0 0);
+  --ink: oklch(15% 0 0deg);
+  --ink-muted: oklch(50% 0 0deg);
 
   /* Brand */
-  --primary: oklch(0.42 0.161 260);
-  --primary-hover: oklch(0.38 0.165 260);
-  --primary-text: oklch(0.98 0 0);
-  --accent: oklch(0.48 0.14 195);
+  --primary: oklch(42% 0.161 260deg);
+  --primary-hover: oklch(38% 0.165 260deg);
+  --primary-text: oklch(98% 0 0deg);
+  --accent: oklch(48% 0.14 195deg);
 
   /* Semantic */
-  --success: oklch(0.45 0.14 155);
-  --warning: oklch(0.50 0.14 80);
-  --danger: oklch(0.45 0.18 25);
+  --success: oklch(45% 0.14 155deg);
+  --warning: oklch(50% 0.14 80deg);
+  --danger: oklch(45% 0.18 25deg);
 
   /* Typography */
   --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans',
@@ -39,22 +39,22 @@
 /* ── Dark mode ───────────────────────────────────────────────── */
 
 [data-mantine-color-scheme='dark'] {
-  --bg: oklch(0.08 0 0);
-  --surface: oklch(0.12 0 0);
-  --surface-elevated: oklch(0.16 0 0);
-  --border: oklch(0.20 0 0);
-  --border-strong: oklch(0.28 0 0);
+  --bg: oklch(8% 0 0deg);
+  --surface: oklch(12% 0 0deg);
+  --surface-elevated: oklch(16% 0 0deg);
+  --border: oklch(20% 0 0deg);
+  --border-strong: oklch(28% 0 0deg);
 
-  --ink: oklch(0.92 0 0);
-  --ink-muted: oklch(0.55 0 0);
+  --ink: oklch(92% 0 0deg);
+  --ink-muted: oklch(55% 0 0deg);
 
-  --primary: oklch(0.52 0.17 260);
-  --primary-hover: oklch(0.56 0.17 260);
-  --accent: oklch(0.55 0.14 195);
+  --primary: oklch(52% 0.17 260deg);
+  --primary-hover: oklch(56% 0.17 260deg);
+  --accent: oklch(55% 0.14 195deg);
 
-  --success: oklch(0.50 0.14 155);
-  --warning: oklch(0.55 0.14 80);
-  --danger: oklch(0.50 0.18 25);
+  --success: oklch(50% 0.14 155deg);
+  --warning: oklch(55% 0.14 80deg);
+  --danger: oklch(50% 0.18 25deg);
 }
 
 /* ── Base ─────────────────────────────────────────────────────── */

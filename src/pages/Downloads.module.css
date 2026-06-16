@@ -1,0 +1,41 @@
+/* ── Downloads Page ─────────────────────────────────────────── */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  background-color: var(--bg);
+  overflow: hidden;
+}
+
+/* Mobile header (hidden on desktop where OS title bar is used) */
+.mobileHeader {
+  display: none;
+}
+
+/* Desktop: the toolbar is the top bar */
+@media (min-width: 600px) {
+  .mobileHeader {
+    display: none;
+  }
+}
+
+/* Mobile: show header + fixed bottom toolbar */
+@media (max-width: 599px) {
+  .mobileHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 0.75rem;
+    height: 44px;
+    background-color: var(--bg);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .page {
+    padding-bottom: 56px;
+    padding-bottom: calc(56px + env(safe-area-inset-bottom));
+  }
+}

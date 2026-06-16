@@ -1,0 +1,36 @@
+/* ── Error Banner ────────────────────────────────────────────── */
+
+.banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  padding: 0.625rem 0.75rem;
+  background-color: var(--surface);
+  border-left: 1px solid var(--danger);
+  margin: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.icon {
+  flex-shrink: 0;
+  color: var(--danger);
+  margin-top: 1px;
+}
+
+.message {
+  flex: 1;
+  font-size: 0.8125rem;
+  color: var(--ink);
+  line-height: 1.5;
+}
+
+.dismiss {
+  flex-shrink: 0;
+  color: var(--ink-muted);
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.dismiss:hover {
+  color: var(--ink);
+}
