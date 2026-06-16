@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { addTorrentMagnet, addWebDownload, controlDownload, fetchDownloads } from '../api/torbox';
+import { getCachedDownloads, saveDownloadsCache } from '../cache/downloadsCache';
 import type { CloudDownload, CloudDownloadType } from '../types/downloads';
 
 export interface UseDownloadsReturn {
@@ -46,11 +47,27 @@ export function useDownloads(apiKey: string): UseDownloadsReturn {
 
     setLoading(true);
     setError(null);
+
+    // 1. Show cached data immediately for instant display
+    try {
+      const cached = await getCachedDownloads();
+      if (mountedRef.current && cached.length > 0) {
+        setDownloads(cached);
+      }
+    } catch {
+      // Cache read failure is non-fatal — proceed to API fetch
+    }
+
+    // 2. Fetch fresh data from API in the background
     try {
       const data = await fetchDownloads(apiKey);
       if (mountedRef.current) {
         setDownloads(data);
       }
+      // Persist to cache (don't block the UI on this)
+      saveDownloadsCache(data).catch(() => {
+        // Cache write failure is non-fatal
+      });
     } catch (err) {
       if (mountedRef.current) {
         setError(err instanceof Error ? err.message : String(err));

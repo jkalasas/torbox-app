@@ -25,3 +25,4 @@ tauri = { version = "2.11.2", features = [] }
 tauri-plugin-http = "2"
 tauri-plugin-log = "2"
 tauri-plugin-store = "2"
+tauri-plugin-sql = { version = "2", features = ["sqlite"] }

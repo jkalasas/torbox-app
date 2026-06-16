@@ -22,6 +22,7 @@ export interface DownloadRowProps {
   paused?: boolean;
   /** Cloud-specific */
   type?: 'torrent' | 'web';
+  cached?: boolean;
   seeders?: number;
   peers?: number;
   /** Local-specific */
@@ -76,6 +77,7 @@ export function DownloadRow({
   errorMessage,
   paused = false,
   type,
+  cached,
   seeders,
   peers,
   destinationPath,
@@ -150,12 +152,23 @@ export function DownloadRow({
             </>
           )}
 
-          {isComplete && (
+          {isComplete && type && (
             <>
               <span className={classes.metaSeparator} aria-hidden="true">
                 ·
               </span>
-              <span className={classes.metaItem}>{type ? 'Cached' : 'Complete'}</span>
+              <span className={classes.metaItem}>
+                {cached !== undefined ? (cached ? 'Already cached' : 'Downloaded') : 'Cached'}
+              </span>
+            </>
+          )}
+
+          {isComplete && !type && (
+            <>
+              <span className={classes.metaSeparator} aria-hidden="true">
+                ·
+              </span>
+              <span className={classes.metaItem}>Complete</span>
             </>
           )}
 

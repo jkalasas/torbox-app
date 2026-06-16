@@ -2,7 +2,7 @@ const UNITS = ['B', 'KB', 'MB', 'GB', 'TB'];
 
 /** Format bytes to human-readable string */
 export function formatBytes(bytes: number): string {
-  if (bytes === 0) {
+  if (!Number.isFinite(bytes) || bytes <= 0) {
     return '0 B';
   }
   const i = Math.floor(Math.log(bytes) / Math.log(1024));

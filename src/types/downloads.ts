@@ -27,6 +27,8 @@ export interface CloudDownload {
   fileCount: number;
   /** Whether the download is paused */
   paused: boolean;
+  /** Whether the content was already cached in TorBox when added (instant availability) */
+  cached: boolean;
 }
 
 /** A local device transfer (TorBox cache → device) */

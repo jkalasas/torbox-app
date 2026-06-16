@@ -223,14 +223,22 @@ interface SharedDownloadFields {
   created_at: string | null;
   files: TorBoxFile[] | null;
   error?: string | null;
+  cached?: boolean;
+}
+
+function safeNum(value: unknown): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
 }
 
 function applySharedFields(download: CloudDownload, raw: SharedDownloadFields): void {
   download.name = raw.name;
-  download.sizeBytes = raw.size;
-  download.progress = Math.min(100, Math.max(0, raw.progress));
-  download.speedBytesPerSec = raw.download_speed > 0 ? raw.download_speed : undefined;
-  download.etaSeconds = raw.eta > 0 ? raw.eta : undefined;
+  download.sizeBytes = safeNum(raw.size);
+  // TorBox API returns progress as a 0–1 decimal, not 0–100 percentage
+  download.progress = Math.min(100, Math.max(0, safeNum(raw.progress) * 100));
+  download.speedBytesPerSec =
+    safeNum(raw.download_speed) > 0 ? Number(raw.download_speed) : undefined;
+  download.etaSeconds = safeNum(raw.eta) > 0 ? Number(raw.eta) : undefined;
 
   const mapping = mapDownloadState(raw.download_state, raw.active);
   download.status = mapping.status;
@@ -241,6 +249,8 @@ function applySharedFields(download: CloudDownload, raw: SharedDownloadFields): 
   }
 
   download.fileCount = raw.files?.length ?? 0;
+  // Propagate the API's cache flag: whether content was already cached at TorBox
+  download.cached = raw.cached ?? false;
 
   if (raw.created_at) {
     download.addedAt = new Date(raw.created_at);
@@ -254,10 +264,11 @@ function mapTorrentToCloudDownload(t: TorrentListData): CloudDownload {
     type: 'torrent',
     status: 'queued',
     progress: 0,
-    sizeBytes: t.size,
+    sizeBytes: safeNum(t.size),
     addedAt: new Date(),
     fileCount: t.files?.length ?? 0,
     paused: false,
+    cached: false,
     seeders: t.seeds,
     peers: t.peers,
   };
@@ -272,10 +283,11 @@ function mapWebToCloudDownload(w: WebDownloadListData): CloudDownload {
     type: 'web',
     status: 'queued',
     progress: 0,
-    sizeBytes: w.size,
+    sizeBytes: safeNum(w.size),
     addedAt: new Date(),
     fileCount: w.files?.length ?? 0,
     paused: false,
+    cached: false,
   };
   applySharedFields(download, w);
   return download;

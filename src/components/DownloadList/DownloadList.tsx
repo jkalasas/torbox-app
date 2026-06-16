@@ -35,6 +35,7 @@ function mapCloudToRow(d: CloudDownload): DownloadRowProps {
     errorMessage: d.errorMessage,
     paused: d.paused,
     type: d.type,
+    cached: d.cached,
     seeders: d.seeders,
     peers: d.peers,
   };
