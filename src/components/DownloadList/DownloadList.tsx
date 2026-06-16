@@ -1,3 +1,5 @@
+import { useVirtualizer } from '@tanstack/react-virtual';
+import { useRef } from 'react';
 import type { CloudDownload, LocalTransfer } from '../../types/downloads';
 import { DownloadRow, type DownloadRowProps } from '../DownloadRow/DownloadRow';
 import { EmptyState } from '../EmptyState/EmptyState';
@@ -103,19 +105,77 @@ export function DownloadList({
   }
 
   return (
-    <ul className={classes.list} aria-label="Downloads">
-      {items.map((item) => (
-        <li key={item.id}>
-          <DownloadRow
-            {...item}
-            onPause={onPause}
-            onResume={onResume}
-            onRemove={onRemove}
-            onRetry={onRetry}
-            onDownloadToDevice={onDownloadToDevice}
-          />
-        </li>
-      ))}
-    </ul>
+    <VirtualizedList
+      items={items}
+      onPause={onPause}
+      onResume={onResume}
+      onRemove={onRemove}
+      onRetry={onRetry}
+      onDownloadToDevice={onDownloadToDevice}
+    />
+  );
+}
+
+function VirtualizedList({
+  items,
+  onPause,
+  onResume,
+  onRemove,
+  onRetry,
+  onDownloadToDevice,
+}: {
+  items: DownloadRowProps[];
+  onPause?: (id: string) => void;
+  onResume?: (id: string) => void;
+  onRemove?: (id: string) => void;
+  onRetry?: (id: string) => void;
+  onDownloadToDevice?: (id: string) => void;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const virtualizer = useVirtualizer({
+    count: items.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 50,
+    overscan: 5,
+  });
+
+  return (
+    <div ref={scrollRef} className={classes.list} aria-label="Downloads">
+      <div
+        style={{
+          height: virtualizer.getTotalSize(),
+          position: 'relative',
+          width: '100%',
+        }}
+      >
+        {virtualizer.getVirtualItems().map((virtualItem) => {
+          const item = items[virtualItem.index];
+          return (
+            <div
+              key={virtualItem.key}
+              data-index={virtualItem.index}
+              ref={virtualizer.measureElement}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                transform: `translateY(${virtualItem.start}px)`,
+              }}
+            >
+              <DownloadRow
+                {...item}
+                onPause={onPause}
+                onResume={onResume}
+                onRemove={onRemove}
+                onRetry={onRetry}
+                onDownloadToDevice={onDownloadToDevice}
+              />
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
