@@ -1,4 +1,5 @@
 mod bandwidth_limiter;
+mod chunked_downloader;
 mod models;
 mod persistence;
 mod queue_manager;

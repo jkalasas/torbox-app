@@ -1,41 +1,29 @@
 use std::collections::VecDeque;
 use std::sync::Arc;
-use tokio::sync::{mpsc, Mutex, OwnedSemaphorePermit, Semaphore};
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum QueueEvent {
-    Activate(String),
-    Remove(String),
-    Pause(String),
-    Resume(String),
-}
+use tokio::sync::{Mutex, Notify, OwnedSemaphorePermit, Semaphore};
 
 pub struct QueueManager {
     queue: Arc<Mutex<VecDeque<String>>>,
     active: Arc<Mutex<Vec<String>>>,
     semaphore: Mutex<Arc<Semaphore>>,
-    event_tx: mpsc::UnboundedSender<QueueEvent>,
+    notify: Arc<Notify>,
 }
 
 impl QueueManager {
-    pub fn new(max_concurrent: u32) -> (Self, mpsc::UnboundedReceiver<QueueEvent>) {
+    pub fn new(max_concurrent: u32) -> Self {
         assert!(max_concurrent > 0, "max_concurrent must be greater than 0");
-        let (event_tx, event_rx) = mpsc::unbounded_channel();
-        (
-            Self {
-                queue: Arc::new(Mutex::new(VecDeque::new())),
-                active: Arc::new(Mutex::new(Vec::new())),
-                semaphore: Mutex::new(Arc::new(Semaphore::new(max_concurrent as usize))),
-                event_tx,
-            },
-            event_rx,
-        )
+        Self {
+            queue: Arc::new(Mutex::new(VecDeque::new())),
+            active: Arc::new(Mutex::new(Vec::new())),
+            semaphore: Mutex::new(Arc::new(Semaphore::new(max_concurrent as usize))),
+            notify: Arc::new(Notify::new()),
+        }
     }
 
-    /// Sets the maximum number of concurrent downloads.
-    ///
-    /// This only affects new downloads that acquire slots after the change.
-    /// Active downloads continue using the previous semaphore until they finish.
+    pub async fn wait_for_change(&self) {
+        self.notify.notified().await;
+    }
+
     pub async fn set_max_concurrent(&self, max: u32) {
         assert!(max > 0, "max_concurrent must be greater than 0");
         let mut sem = self.semaphore.lock().await;
@@ -45,7 +33,15 @@ impl QueueManager {
     pub async fn enqueue(&self, download_id: String) -> usize {
         let mut queue = self.queue.lock().await;
         queue.push_back(download_id);
-        queue.len()
+        let position = queue.len();
+        drop(queue);
+        self.notify.notify_one();
+        position
+    }
+
+    pub async fn pop(&self) -> Option<String> {
+        let mut queue = self.queue.lock().await;
+        queue.pop_front()
     }
 
     pub async fn acquire_slot(&self) -> Result<OwnedSemaphorePermit, String> {
@@ -69,7 +65,6 @@ impl QueueManager {
                 active.push(download_id.clone());
             }
         }
-        self.event_tx.send(QueueEvent::Activate(download_id)).ok();
     }
 
     pub async fn deactivate(&self, download_id: &str) {
@@ -86,15 +81,6 @@ impl QueueManager {
             let mut active = self.active.lock().await;
             active.retain(|id| id != download_id);
         }
-        self.event_tx.send(QueueEvent::Remove(download_id.to_string())).ok();
-    }
-
-    pub async fn pause(&self, download_id: &str) {
-        self.event_tx.send(QueueEvent::Pause(download_id.to_string())).ok();
-    }
-
-    pub async fn resume(&self, download_id: &str) {
-        self.event_tx.send(QueueEvent::Resume(download_id.to_string())).ok();
     }
 
     pub async fn queue_position(&self, download_id: &str) -> Option<usize> {
@@ -112,13 +98,11 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_enqueue_and_activate() {
-        let (qm, mut rx) = QueueManager::new(2);
+    async fn test_enqueue_and_pop() {
+        let qm = QueueManager::new(2);
         let pos = qm.enqueue("d1".to_string()).await;
         assert_eq!(pos, 1);
-
-        qm.activate("d1".to_string()).await;
-        assert_eq!(rx.recv().await, Some(QueueEvent::Activate("d1".to_string())));
-        assert_eq!(qm.queue_position("d1").await, Some(0));
+        assert_eq!(qm.pop().await, Some("d1".to_string()));
+        assert_eq!(qm.pop().await, None);
     }
 }
