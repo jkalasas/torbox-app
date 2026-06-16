@@ -33,12 +33,26 @@
   .mobileHeader {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    gap: 0.5rem;
     padding: 0 0.75rem;
     height: 44px;
     background-color: var(--bg);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
+  }
+
+  .mobileTitle {
+    flex-shrink: 0;
+  }
+
+  .mobileSearch {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .mobileSearch input {
+    height: 32px;
+    min-height: 32px;
   }
 
   .filterBar {

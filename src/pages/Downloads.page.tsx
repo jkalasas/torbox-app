@@ -1,5 +1,5 @@
-import { ActionIcon, SegmentedControl, Text } from '@mantine/core';
-import { IconSettings } from '@tabler/icons-react';
+import { ActionIcon, SegmentedControl, Text, TextInput } from '@mantine/core';
+import { IconSearch, IconSettings } from '@tabler/icons-react';
 import { useCallback, useMemo, useState } from 'react';
 import { AddDownloadModal } from '../components/AddDownloadModal/AddDownloadModal';
 import { DownloadList } from '../components/DownloadList/DownloadList';
@@ -142,9 +142,18 @@ export function DownloadsPage() {
     <div className={classes.page}>
       {/* Mobile header (visible only on small screens) */}
       <header className={classes.mobileHeader}>
-        <Text fw={600} size="sm">
+        <Text className={classes.mobileTitle} fw={600} size="sm">
           TorBox
         </Text>
+        <TextInput
+          className={classes.mobileSearch}
+          placeholder="Filter by name…"
+          size="xs"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.currentTarget.value)}
+          leftSection={<IconSearch size={14} stroke={2} />}
+          aria-label="Filter downloads by name"
+        />
         <ActionIcon
           variant="subtle"
           size="md"
