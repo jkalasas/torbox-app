@@ -33,9 +33,9 @@ export function DownloadsPage() {
   >('all');
   const [fileListDownload, setFileListDownload] = useState<CloudDownload | null>(null);
 
-  const { savedApiKey, setApiKey, saveApiKey, saving, saved, ready } = useSettings();
+  const { settings, updateSetting, saveSettings, saving, saved, ready } = useSettings();
 
-  const settingsReady = ready && savedApiKey.length > 0;
+  const settingsReady = ready && settings.api_key.length > 0;
 
   const {
     downloads,
@@ -49,7 +49,7 @@ export function DownloadsPage() {
     refresh: refreshCloud,
     byType,
     counts: cloudCounts,
-  } = useDownloads(savedApiKey);
+  } = useDownloads(settings.api_key);
 
   const {
     transfers,
@@ -261,7 +261,7 @@ export function DownloadsPage() {
         opened={addModalOpen}
         onClose={() => setAddModalOpen(false)}
         onAdd={(name, type, url) => {
-          if (!savedApiKey) {
+          if (!settings.api_key) {
             setAddModalOpen(false);
             setSettingsOpen(true);
             return;
@@ -277,7 +277,7 @@ export function DownloadsPage() {
         onClose={() => setFileListDownload(null)}
         downloadName={fileListDownload?.name ?? ''}
         files={fileListDownload?.files ?? []}
-        apiKey={savedApiKey}
+        apiKey={settings.api_key}
         downloadType={fileListDownload?.type ?? 'torrent'}
         downloadId={fileListDownload ? Number(fileListDownload.id.slice(2)) : 0}
       />
@@ -286,12 +286,12 @@ export function DownloadsPage() {
       <SettingsModal
         opened={settingsOpen}
         onClose={() => setSettingsOpen(false)}
-        savedApiKey={savedApiKey}
+        savedApiKey={settings.api_key}
         saving={saving}
         saved={saved}
         ready={ready}
-        onSave={saveApiKey}
-        onApiKeyChange={setApiKey}
+        onSave={saveSettings}
+        onApiKeyChange={(key) => updateSetting('api_key', key)}
       />
     </div>
   );

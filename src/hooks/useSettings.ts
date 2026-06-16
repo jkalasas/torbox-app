@@ -1,71 +1,79 @@
-import { load } from '@tauri-apps/plugin-store';
-import { useCallback, useEffect, useState } from 'react';
+import { invoke } from '@tauri-apps/api/core';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { DownloadSettings } from '../types/downloads';
 
-const STORE_PATH = 'settings.json';
-const API_KEY_KEY = 'api_key';
+const DEFAULTS: DownloadSettings = {
+  api_key: '',
+  download_dir: '',
+  max_concurrent: 3,
+  bandwidth_limit: 0,
+  notify_on_complete: true,
+  open_folder_on_complete: true,
+};
 
 export interface UseSettingsReturn {
-  apiKey: string;
-  savedApiKey: string;
-  setApiKey: (key: string) => void;
-  saveApiKey: () => Promise<void>;
+  settings: DownloadSettings;
   saving: boolean;
   saved: boolean;
   ready: boolean;
+  error: string | null;
+  updateSetting: <K extends keyof DownloadSettings>(key: K, value: DownloadSettings[K]) => void;
+  saveSettings: () => Promise<void>;
 }
 
 export function useSettings(): UseSettingsReturn {
-  const [store, setStore] = useState<Awaited<ReturnType<typeof load>> | null>(null);
-  const [savedApiKey, setSavedApiKey] = useState('');
-  const [apiKey, setApiKey] = useState('');
+  const [settings, setSettings] = useState<DownloadSettings>(DEFAULTS);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [ready, setReady] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const savedTimerRef = useRef<number | null>(null);
 
-  // Load the store on mount
   useEffect(() => {
-    let cancelled = false;
-
     const init = async () => {
-      const s = await load(STORE_PATH, { defaults: {}, autoSave: false });
-      if (cancelled) {
-        return;
+      try {
+        const s = await invoke<DownloadSettings>('get_settings', {});
+        setSettings(s);
+        setReady(true);
+      } catch (e) {
+        setError(String(e));
       }
-      const existing = await s.get<string>(API_KEY_KEY);
-      const key = existing ?? '';
-      setStore(s);
-      setSavedApiKey(key);
-      setApiKey(key);
-      setReady(true);
     };
-
     void init();
+  }, []);
 
+  useEffect(() => {
     return () => {
-      cancelled = true;
+      if (savedTimerRef.current !== null) {
+        window.clearTimeout(savedTimerRef.current);
+      }
     };
   }, []);
 
-  const saveApiKey = useCallback(async () => {
-    if (!store) {
-      return;
-    }
+  const updateSetting = useCallback(
+    <K extends keyof DownloadSettings>(key: K, value: DownloadSettings[K]) => {
+      setSettings((prev) => ({ ...prev, [key]: value }));
+    },
+    []
+  );
+
+  const saveSettings = useCallback(async () => {
     setSaving(true);
-
-    if (apiKey) {
-      await store.set(API_KEY_KEY, apiKey);
-    } else {
-      await store.delete(API_KEY_KEY);
+    setError(null);
+    if (savedTimerRef.current !== null) {
+      window.clearTimeout(savedTimerRef.current);
+      savedTimerRef.current = null;
     }
-    await store.save();
+    try {
+      await invoke('update_settings', { settings: settings as unknown as Record<string, unknown> });
+      setSaving(false);
+      setSaved(true);
+      savedTimerRef.current = window.setTimeout(() => setSaved(false), 2000);
+    } catch (e) {
+      setSaving(false);
+      setError(String(e));
+    }
+  }, [settings]);
 
-    setSavedApiKey(apiKey);
-    setSaving(false);
-    setSaved(true);
-
-    // Reset saved indicator after a brief moment
-    setTimeout(() => setSaved(false), 2000);
-  }, [store, apiKey]);
-
-  return { apiKey, savedApiKey, setApiKey, saveApiKey, saving, saved, ready };
+  return { settings, saving, saved, ready, error, updateSetting, saveSettings };
 }
