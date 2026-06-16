@@ -131,7 +131,7 @@ interface TorrentListData {
   torrent_file: boolean;
   expires_at: string | null;
   download_present: boolean;
-  files: TorBoxFile[];
+  files: TorBoxFile[] | null;
   download_path: string | null;
   availability: number;
   download_finished: boolean;
@@ -164,7 +164,7 @@ interface WebDownloadListData {
   progress: number;
   size: number;
   download_id: string | null;
-  files: TorBoxFile[];
+  files: TorBoxFile[] | null;
   active: boolean;
   cached: boolean;
   download_present: boolean;
@@ -221,7 +221,7 @@ interface SharedDownloadFields {
   download_state: string | null;
   active: boolean;
   created_at: string | null;
-  files: TorBoxFile[];
+  files: TorBoxFile[] | null;
   error?: string | null;
 }
 
@@ -240,7 +240,7 @@ function applySharedFields(download: CloudDownload, raw: SharedDownloadFields): 
     download.errorMessage = raw.error;
   }
 
-  download.fileCount = raw.files.length;
+  download.fileCount = raw.files?.length ?? 0;
 
   if (raw.created_at) {
     download.addedAt = new Date(raw.created_at);
@@ -256,7 +256,7 @@ function mapTorrentToCloudDownload(t: TorrentListData): CloudDownload {
     progress: 0,
     sizeBytes: t.size,
     addedAt: new Date(),
-    fileCount: t.files.length,
+    fileCount: t.files?.length ?? 0,
     paused: false,
     seeders: t.seeds,
     peers: t.peers,
@@ -274,7 +274,7 @@ function mapWebToCloudDownload(w: WebDownloadListData): CloudDownload {
     progress: 0,
     sizeBytes: w.size,
     addedAt: new Date(),
-    fileCount: w.files.length,
+    fileCount: w.files?.length ?? 0,
     paused: false,
   };
   applySharedFields(download, w);
