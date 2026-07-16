@@ -66,7 +66,7 @@ export function DownloadsPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [fileListDownload, setFileListDownload] = useState<CloudDownload | null>(null);
 
-  const { settings, updateSetting, saveSettings, saving, saved, ready, error } = useSettings();
+  const { settings, saveSettings, saving, saved, ready, error } = useSettings();
   const isDesktop = useMediaQuery('(min-width: 900px)', true);
   const isMobile = useMediaQuery('(max-width: 599px)', false);
 
@@ -374,7 +374,6 @@ export function DownloadsPage() {
         saved={saved}
         ready={ready}
         error={error}
-        onSettingChange={updateSetting}
         onSave={saveSettings}
       />
     </div>

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen, userEvent } from '../../../test-utils';
+import { render, screen, userEvent, waitFor } from '../../../test-utils';
 import type { DownloadSettings } from '../../types/downloads';
 import { SettingsModal } from './SettingsModal';
 
@@ -14,13 +14,11 @@ const baseSettings: DownloadSettings = {
 };
 
 function renderModal(props: Partial<React.ComponentProps<typeof SettingsModal>> = {}) {
-  const onSettingChange = vi.fn();
-  const onSave = vi.fn();
+  const onSave = vi.fn().mockResolvedValue(undefined);
   const user = userEvent.setup();
 
   return {
     user,
-    onSettingChange,
     onSave,
     ...render(
       <SettingsModal
@@ -31,7 +29,6 @@ function renderModal(props: Partial<React.ComponentProps<typeof SettingsModal>> 
         saved={false}
         ready
         error={null}
-        onSettingChange={onSettingChange}
         onSave={onSave}
         {...props}
       />
@@ -49,12 +46,50 @@ describe('SettingsModal', () => {
     expect(screen.getByRole('radio', { name: 'Light' })).toBeInTheDocument();
   });
 
-  it('calls onSettingChange when color mode changes', async () => {
-    const { user, onSettingChange } = renderModal();
+  it('keeps Save enabled after edits and saves local values', async () => {
+    const { user, onSave } = renderModal();
 
+    const saveButton = screen.getByRole('button', { name: 'Save' });
+    expect(saveButton).toBeDisabled();
+
+    await user.type(screen.getByLabelText('API key'), 'test-key');
     await user.click(screen.getByRole('radio', { name: 'System' }));
 
-    expect(onSettingChange).toHaveBeenCalledWith('color_mode', 'auto');
+    expect(saveButton).toBeEnabled();
+
+    await user.click(saveButton);
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          api_key: 'test-key',
+          color_mode: 'auto',
+        })
+      );
+    });
+  });
+
+  it('does not apply parent settings changes while the modal is open', async () => {
+    const { user, rerender, onSave } = renderModal();
+
+    await user.type(screen.getByLabelText('API key'), 'draft-key');
+    expect(screen.getByLabelText('API key')).toHaveValue('draft-key');
+
+    rerender(
+      <SettingsModal
+        opened
+        onClose={vi.fn()}
+        settings={{ ...baseSettings, api_key: 'parent-key' }}
+        saving={false}
+        saved={false}
+        ready
+        error={null}
+        onSave={onSave}
+      />
+    );
+
+    expect(screen.getByLabelText('API key')).toHaveValue('draft-key');
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
   });
 
   it('has an accessible name for the color mode control', () => {

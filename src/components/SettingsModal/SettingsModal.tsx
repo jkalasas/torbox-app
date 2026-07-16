@@ -11,7 +11,7 @@ import {
   TextInput,
 } from '@mantine/core';
 import { IconCheck, IconEye, IconEyeOff, IconFolder, IconKey } from '@tabler/icons-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ColorMode, DownloadSettings } from '../../types/downloads';
 import classes from './SettingsModal.module.css';
 
@@ -23,8 +23,7 @@ export interface SettingsModalProps {
   saved: boolean;
   ready: boolean;
   error: string | null;
-  onSettingChange: <K extends keyof DownloadSettings>(key: K, value: DownloadSettings[K]) => void;
-  onSave: () => Promise<void>;
+  onSave: (settings: DownloadSettings) => Promise<DownloadSettings | void>;
 }
 
 export function SettingsModal({
@@ -35,25 +34,25 @@ export function SettingsModal({
   saved,
   ready,
   error,
-  onSettingChange,
   onSave,
 }: SettingsModalProps) {
   const [localSettings, setLocalSettings] = useState<DownloadSettings>(settings);
   const [initialSettings, setInitialSettings] = useState<DownloadSettings>(settings);
   const [apiKeyVisible, setApiKeyVisible] = useState(false);
+  const wasOpenRef = useRef(false);
 
-  // Sync local state when modal opens
   useEffect(() => {
-    if (opened && ready) {
+    const isOpen = opened && ready;
+    if (isOpen && !wasOpenRef.current) {
       setLocalSettings(settings);
       setInitialSettings(settings);
+      setApiKeyVisible(false);
     }
+    wasOpenRef.current = isOpen;
   }, [opened, ready, settings]);
 
-  // Push local changes up to parent for save tracking
   const update = <K extends keyof DownloadSettings>(key: K, value: DownloadSettings[K]) => {
     setLocalSettings((prev) => ({ ...prev, [key]: value }));
-    onSettingChange(key, value);
   };
 
   const hasChanges = JSON.stringify(localSettings) !== JSON.stringify(initialSettings);
@@ -74,10 +73,20 @@ export function SettingsModal({
     }
   };
 
+  const handleSave = async () => {
+    try {
+      const savedSettings = await onSave(localSettings);
+      const next = savedSettings ?? localSettings;
+      setLocalSettings(next);
+      setInitialSettings(next);
+    } catch {
+      // Parent exposes the error; keep local draft editable.
+    }
+  };
+
   return (
     <Modal opened={opened} onClose={onClose} title="Settings" size={480} centered>
       <div className={classes.content}>
-        {/* API Key section */}
         <Text fw={600} size="sm" mb={4}>
           API Key
         </Text>
@@ -111,7 +120,6 @@ export function SettingsModal({
 
         <Divider mb="md" />
 
-        {/* Appearance section */}
         <Text fw={600} size="sm" mb="md">
           Appearance
         </Text>
@@ -133,7 +141,6 @@ export function SettingsModal({
 
         <Divider mb="md" />
 
-        {/* Downloads section */}
         <Text fw={600} size="sm" mb="md">
           Downloads
         </Text>
@@ -213,7 +220,12 @@ export function SettingsModal({
               </Text>
             </Group>
           )}
-          <Button onClick={onSave} loading={saving} disabled={!hasChanges} size="compact-sm">
+          <Button
+            onClick={() => void handleSave()}
+            loading={saving}
+            disabled={!hasChanges}
+            size="compact-sm"
+          >
             Save
           </Button>
         </Group>

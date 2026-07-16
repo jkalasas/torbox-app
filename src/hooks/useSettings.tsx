@@ -27,10 +27,18 @@ export interface UseSettingsReturn {
   ready: boolean;
   error: string | null;
   updateSetting: <K extends keyof DownloadSettings>(key: K, value: DownloadSettings[K]) => void;
-  saveSettings: () => Promise<void>;
+  saveSettings: (next?: DownloadSettings) => Promise<DownloadSettings>;
 }
 
 const SettingsContext = createContext<UseSettingsReturn | null>(null);
+
+function normalizeSettings(settings: DownloadSettings): DownloadSettings {
+  return {
+    ...settings,
+    api_key: settings.api_key.trim(),
+    download_dir: settings.download_dir.trim(),
+  };
+}
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<DownloadSettings>(DEFAULTS);
@@ -39,15 +47,22 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const savedTimerRef = useRef<number | null>(null);
+  const settingsRef = useRef(settings);
+
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
 
   useEffect(() => {
     const init = async () => {
       try {
         const s = await invoke<DownloadSettings>('get_settings', {});
-        setSettings(s);
+        const normalized = normalizeSettings(s);
+        setSettings(normalized);
         setReady(true);
       } catch (e) {
         setError(String(e));
+        setReady(true);
       }
     };
     void init();
@@ -66,7 +81,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
-  const saveSettings = useCallback(async () => {
+  const saveSettings = useCallback(async (next?: DownloadSettings) => {
+    const toSave = normalizeSettings(next ?? settingsRef.current);
     setSaving(true);
     setError(null);
     if (savedTimerRef.current !== null) {
@@ -75,16 +91,19 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     }
     try {
       await invoke('update_settings', {
-        settings: settings as unknown as Record<string, unknown>,
+        settings: toSave as unknown as Record<string, unknown>,
       });
+      setSettings(toSave);
       setSaving(false);
       setSaved(true);
       savedTimerRef.current = window.setTimeout(() => setSaved(false), 2000);
+      return toSave;
     } catch (e) {
       setSaving(false);
       setError(String(e));
+      throw e;
     }
-  }, [settings]);
+  }, []);
 
   const value = useMemo<UseSettingsReturn>(
     () => ({

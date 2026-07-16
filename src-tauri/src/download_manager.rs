@@ -207,8 +207,27 @@ impl DownloadManager {
 
         // Get download link from TorBox API
         let settings = self.settings.read().await;
-        let api_key = settings.api_key.clone();
+        let api_key = settings.api_key.trim().to_string();
         drop(settings);
+
+        if api_key.is_empty() {
+            let message =
+                "No API key configured. Open Settings and save a valid TorBox API key.".to_string();
+            self.persistence
+                .update_download_status(&download_id, &DownloadStatus::Error, Some(&message))
+                .ok();
+            app.emit(
+                "download-error",
+                DownloadErrorEvent {
+                    download_id: download_id.clone(),
+                    message,
+                },
+            )
+            .ok();
+            self.active_downloads.lock().await.remove(&download_id);
+            self.queue.deactivate(&download_id).await;
+            return Ok(());
+        }
 
         let download_url =
             match request_torbox_download_link(&self.client, &api_key, &download).await {
