@@ -1,0 +1,92 @@
+.rail {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 52px;
+  flex-shrink: 0;
+  background-color: oklch(6% 0 0deg);
+  color: oklch(70% 0 0deg);
+  padding: 0.5rem 0;
+  z-index: 200;
+  position: relative;
+}
+
+.dragRegion {
+  display: none;
+}
+
+[data-mantine-color-scheme='light'] .rail {
+  background-color: oklch(12% 0 0deg);
+  color: oklch(75% 0 0deg);
+}
+
+.top,
+.bottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin-bottom: 0.75rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: oklch(92% 0 0deg);
+  border-radius: var(--radius-sm);
+  user-select: none;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  transition:
+    background-color 150ms ease-out,
+    color 150ms ease-out;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+.item:hover {
+  background-color: oklch(100% 0 0deg / 0.08);
+  color: oklch(95% 0 0deg);
+}
+
+.itemActive {
+  background-color: oklch(100% 0 0deg / 0.12);
+  color: oklch(98% 0 0deg);
+}
+
+.item:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+@media (max-width: 599px) {
+  .rail {
+    display: none;
+  }
+}

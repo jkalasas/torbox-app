@@ -75,7 +75,7 @@ export function SettingsModal({
   };
 
   return (
-    <Modal opened={opened} onClose={onClose} title="Settings" size="sm" centered>
+    <Modal opened={opened} onClose={onClose} title="Settings" size={480} centered>
       <div className={classes.content}>
         {/* API Key section */}
         <Text fw={600} size="sm" mb={4}>

@@ -98,63 +98,65 @@ font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas,
 |---|---|---|
 | Mobile | < 600px | Android, iOS phones |
 | Tablet | 600–900px | iPad, Android tablets |
-| Desktop | > 900px | macOS, Windows, Linux (default 800×600 window) |
+| Desktop | > 900px | macOS, Windows, Linux (default 1000×700 window) |
 
 Same React component tree adapts via CSS media/container queries and Mantine's responsive props. No separate mobile code path — layout changes, not component duplication.
 
 ### Desktop (≥900px)
 
-The window is 800×600 by default (per `tauri.conf.json`). Resizable, minimum 640×400.
+Motrix-style dual sidebar shell. Window defaults to 1000×700 (per `tauri.conf.json`), resizable, minimum 720×480.
+
+**Title bar (platform hybrid)**
+- macOS: overlay title bar + native traffic lights over the icon rail (`titleBarStyle: Overlay`)
+- Windows/Linux: decorations off + custom min/max/close controls styled to app tokens
+- Drag regions on the icon-rail logo area and content header title
 
 ```
-┌─────────────────────────────────────────┐
-│  [TorBox]                    [⚙] [— □ ×] │  Title bar (OS-native or custom)
-├─────────────────────────────────────────┤
-│  [+ Add]  [Magnet] [↻]               │  Toolbar (compact, icon+label)
-├─────────────────────────────────────────┤
-│  ┌─ Torrents (3) ─┐  ┌─ Web DLs (2) ─┐ │  Tab bar
-├─────────────────────────────────────────┤
-│  ┌──────────────────────────────────┐   │
-│  │  ubuntu-24.04.iso         ████░░ │   │  Download list
-│  │  2.4 GB · 4.2 MB/s · 3m left│   │   │  (rows with progress)
-│  ├──────────────────────────────────┤   │
-│  │  debian-12.5.iso          ██████ │   │
-│  │  3.8 GB · Complete · 2 files │   │   │
-│  └──────────────────────────────────┘   │
-├─────────────────────────────────────────┤
-│  2 torrents · 1 active · 0 errors       │  Status bar
-└─────────────────────────────────────────┘
+┌────┬──────────────┬─────────────────────────────────────┐
+│ TB │ Status       │  Active · Torrents            [↻]   │
+│ ☁  │  ▶ Active    │  ┌───────────────────────────────┐  │
+│ 💾 │  ⏸ Inactive  │  │ name            [actions pill]│  │
+│ ＋ │  ■ Error     │  │ ████████░░░░░░░░              │  │
+│ ⚙  │  · All       │  │ 1.0/2.6 GB   ↓12.5 MB/s  2m  │  │
+│    │ Type         │  └───────────────────────────────┘  │
+│    │  Torrents    │                       [speed badge] │
+│    │  Web DLs     │                                     │
+└────┴──────────────┴─────────────────────────────────────┘
 ```
+
+- Icon rail (~52px, near-black): Cloud / Local / Add / Settings
+- Secondary sidebar (~180px, `--surface`): status filters + cloud type filters
+- Content: section title, search, bordered list rows, floating speed badge
+
+### Tablet (600–899px)
+
+Keep the icon rail. Collapse the secondary sidebar into horizontal chip filters under the content header.
 
 ### Mobile (< 600px)
 
-Full-width single column. Bottom action for primary task (Add). Swipe on rows for secondary actions.
+Full-width single column. No sidebars. Bottom action for primary task (Add).
 
 ```
 ┌──────────────────┐
-│  TorBox    [⚙]   │  Header (44px, compact)
+│ Active     [↻][⚙]│  Content header
+│ Cloud │ Local    │  Mode chips
+│ Torrents│Web     │  Type chips (cloud)
+│ All Active …     │  Status chips
 ├──────────────────┤
-│ Torrents │ Web DL│  Segmented tabs
+│ name             │
+│ ████░░░░         │  Download row
+│ 2.4 GB · 4 MB/s  │  (≥48px tap height)
 ├──────────────────┤
-│ ● ubuntu-24.04   │
-│   ████░░░░  45%  │  Download row
-│   2.4 GB · 4 MB/s│  (≥48px tap height)
-├──────────────────┤
-│ ● debian-12.5    │
-│   ████████ 100%  │
-│   3.8 GB · Done  │
-├──────────────────┤
-│                  │
 │                  │  Scrollable area
 ├──────────────────┤
-│ Downloads  [ ＋ ] │  Bottom bar (50px)
+│     [ ＋ Add ]   │  Bottom bar (50px)
 └──────────────────┘
 ```
 
 ### Rules (all platforms)
 
-- Flexbox for 1D layouts (toolbar, status bar, download rows). Grid for 2D (if needed later).
-- No nested cards. Download items are rows, not cards.
+- Flexbox for 1D layouts (rail, side nav, download rows). Grid only if needed later.
+- Download items are **gapped, bordered list rows** (Motrix-style), not a card grid and not flush table separators.
 - Semantic z-index scale: dropdown (100) → sticky header (200) → modal backdrop (300) → modal/bottom-sheet (400) → toast (500).
 - Never `z-index: 999` or `z-index: 9999`.
 
@@ -164,40 +166,38 @@ Built on Mantine 9. Customize via `createTheme`, not by fighting the library.
 
 ### Download row
 
-**Desktop**: A compact horizontal row showing:
-- **Status indicator** (colored dot: downloading=accent, complete=success, queued=warning, error=danger)
-- **Name** (truncated, primary text color, `--ink`)
-- **Progress bar** (thin, 4px height, `--primary` fill on `--surface` track)
-- **Metadata** (size, speed, ETA in `--ink-muted` at caption size)
-- **Actions** (icon-only buttons on hover: pause, delete, get link)
+Motrix-style bordered list item (not a card grid):
 
-**Mobile**: Same data, taller row:
+**Desktop / tablet**:
+- **Name** (truncated, `--ink`) + **action pill** (pause/resume, retry, download-to-device, files, remove) — pill muted until row hover/focus
+- **Full-width progress bar** (4px, `--primary` / success / danger fill)
+- **Metadata**: size progress left · speed / ETA / peers right (`--ink-muted`, caption)
+
+**Mobile**:
 - Row height: ≥48px (touch-friendly)
-- Progress bar: 6px height (easier to read at a glance)
-- Metadata stacks below name (name + progress on first line, stats on second)
-- Actions: swipe left to reveal delete + get-link buttons (native-feel gesture). Tap row to expand inline file list.
-- Long-press to select multiple rows for bulk actions.
+- Progress bar: 6px height
+- Meta stacks vertically
+- Actions always visible (no hover)
+- Tap completed row to open file list
 
-Rows are `--surface` background with a 1px `--border` bottom separator. Desktop hover lifts to `--surface-elevated`. Mobile has a `--primary` ripple on tap. No box-shadow.
+Rows use `--surface` fill, 1px `--border`, `--radius-md`, with gap between items. Desktop hover lifts to `--surface-elevated`. No box-shadow.
 
-### Toolbar / Actions
+### Shell navigation
 
-**Desktop**: Compact horizontal toolbar at the top:
-- **Add button** (primary filled, opens a modal for magnet link or file upload)
-- **Quick magnet input** (text field with paste support, detects magnet URIs)
-- **Refresh button** (icon-only)
-- **Settings** (gear icon, opens app settings)
-- Drag-and-drop `.torrent` files onto the window to add them.
+- **Icon rail**: primary mode (Cloud / Local) + Add + Settings
+- **Side nav** (desktop): status filters (Active / Inactive / Error / All) and type (Torrents / Web)
+- **Mobile / tablet chips**: same filters as horizontal pill chips
+- **Content header**: current filter title + search + refresh
+- **Speed badge** (desktop/tablet): floating aggregate download speed
 
-**Mobile**: Bottom action bar or FAB:
-- **Add button** (primary filled, 56px FAB in bottom-right, or centered button in a 50px bottom bar)
-- **Quick magnet**: tap Add → bottom sheet with paste-from-clipboard detection. Auto-detects magnet URIs.
-- **Refresh**: pull-to-refresh gesture on the download list.
-- **Settings**: gear icon in the header.
+### Actions
 
-### Tabs
+**Desktop**: Add and Settings live in the icon rail; refresh + name filter live in the content header. Drag-and-drop `.torrent` files onto the window to add them.
 
-Torrents / Web Downloads as tab-style segments. Active tab has a 2px `--primary` bottom border. Inactive tabs are `--ink-muted`. No pill backgrounds.
+**Mobile**:
+- **Add button** in a fixed bottom bar (full-width, 44px min height)
+- **Settings** + **Refresh** in the content header
+- **Quick magnet**: tap Add → modal/sheet with paste detection
 
 ### Modals / Bottom sheets
 

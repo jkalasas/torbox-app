@@ -1,0 +1,65 @@
+.shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  background-color: var(--bg);
+  overflow: hidden;
+  position: relative;
+}
+
+.titleBar {
+  display: flex;
+  align-items: stretch;
+  height: 32px;
+  flex-shrink: 0;
+  background-color: var(--bg);
+  border-bottom: 1px solid var(--border);
+  z-index: 300;
+}
+
+.titleBarSpacer {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+}
+
+.body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.main {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  background-color: var(--bg);
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* macOS overlay: leave room in the rail for traffic lights */
+.mac.desktop .body > :first-child {
+  padding-top: 28px;
+}
+
+@media (max-width: 599px) {
+  .titleBar {
+    display: none;
+  }
+
+  .mac.desktop .body > :first-child {
+    padding-top: 0;
+  }
+}

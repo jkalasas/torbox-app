@@ -52,9 +52,18 @@ vi.mock('../hooks/useSettings', () => ({
 }));
 
 describe('DownloadsPage', () => {
-  it('has an accessible name for the status filter', () => {
+  it('renders the motrix-style shell with status navigation', () => {
     render(<DownloadsPage />);
 
-    expect(screen.getByRole('radiogroup', { name: 'Filter by status' })).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Primary navigation' })).toBeInTheDocument();
+    expect(screen.getByRole('listbox', { name: 'Filter by status' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Torrents' })).toBeInTheDocument();
+  });
+
+  it('exposes cloud and local mode controls', () => {
+    render(<DownloadsPage />);
+
+    expect(screen.getByRole('tab', { name: 'Cloud downloads' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Local transfers' })).toBeInTheDocument();
   });
 });

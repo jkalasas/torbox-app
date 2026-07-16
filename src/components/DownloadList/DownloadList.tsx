@@ -6,24 +6,18 @@ import { EmptyState } from '../EmptyState/EmptyState';
 import classes from './DownloadList.module.css';
 
 export interface DownloadListProps {
-  /** Cloud downloads to display */
   downloads?: CloudDownload[];
-  /** Local transfers to display */
   transfers?: LocalTransfer[];
   loading?: boolean;
-  /** Number of skeleton rows when loading */
   skeletonCount?: number;
-  /** Callbacks */
   onPause?: (id: string) => void;
   onResume?: (id: string) => void;
   onRemove?: (id: string) => void;
   onRetry?: (id: string) => void;
   onDownloadToDevice?: (id: string) => void;
-  /** For empty state */
   emptyTitle?: string;
   emptyDescription?: string;
   onAdd?: () => void;
-  /** Open file list for a cached / completed download */
   onOpenFiles?: (id: string) => void;
 }
 
@@ -79,12 +73,9 @@ export function DownloadList({
       <output className={classes.list} aria-label="Loading downloads" aria-live="polite">
         {Array.from({ length: skeletonCount }).map((_, i) => (
           <div key={i} className={classes.skeletonRow}>
-            <div className={classes.skeletonDot} />
-            <div className={classes.skeletonContent}>
-              <div className={`${classes.skeletonLine} ${classes.skeletonLineLong}`} />
-              <div className={`${classes.skeletonLine} ${classes.skeletonLineShort}`} />
-            </div>
+            <div className={`${classes.skeletonLine} ${classes.skeletonLineLong}`} />
             <div className={classes.skeletonProgress} />
+            <div className={`${classes.skeletonLine} ${classes.skeletonLineShort}`} />
           </div>
         ))}
       </output>
@@ -142,8 +133,9 @@ function VirtualizedList({
   const virtualizer = useVirtualizer({
     count: items.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => 62,
+    estimateSize: () => 88,
     overscan: 5,
+    gap: 8,
   });
 
   return (
@@ -162,6 +154,7 @@ function VirtualizedList({
               key={virtualItem.key}
               data-index={virtualItem.index}
               ref={virtualizer.measureElement}
+              className={classes.virtualItem}
               style={{
                 position: 'absolute',
                 top: 0,

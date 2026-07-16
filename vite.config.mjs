@@ -44,6 +44,7 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: './vitest.setup.mjs',
+    exclude: ['**/node_modules/**', '**/dist/**', '**/.worktrees/**'],
   },
 
   resolve: {

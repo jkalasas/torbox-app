@@ -1,0 +1,34 @@
+.controls {
+  display: flex;
+  align-items: stretch;
+  height: 100%;
+  flex-shrink: 0;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+.button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 100%;
+  min-height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+  transition:
+    background-color 150ms ease-out,
+    color 150ms ease-out;
+}
+
+.button:hover {
+  background-color: var(--surface-elevated);
+  color: var(--ink);
+}
+
+.close:hover {
+  background-color: var(--danger);
+  color: var(--primary-text);
+}

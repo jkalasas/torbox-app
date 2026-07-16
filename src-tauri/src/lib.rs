@@ -27,6 +27,14 @@ pub fn run() {
                 )?;
             }
 
+            // Custom chrome on Windows/Linux; macOS keeps overlay + native traffic lights.
+            #[cfg(any(target_os = "windows", target_os = "linux"))]
+            {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.set_decorations(false);
+                }
+            }
+
             // Initialize SQLite for downloads
             let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
             std::fs::create_dir_all(&app_dir).map_err(|e| e.to_string())?;

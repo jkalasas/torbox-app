@@ -1,38 +1,33 @@
-/* ── Download List ─────────────────────────────────────────── */
-
 .list {
   display: flex;
   flex-direction: column;
   overflow-y: auto;
   flex: 1;
   list-style: none;
-  padding: 0;
+  padding: 0.75rem;
   margin: 0;
 }
 
-/* Skeleton rows for loading */
-.skeletonRow {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.625rem 0.75rem;
-  border-bottom: 1px solid var(--border);
-  min-height: 48px;
-}
-
-.skeletonDot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background-color: var(--border);
-  flex-shrink: 0;
-}
-
-.skeletonContent {
-  flex: 1;
+.listInner {
   display: flex;
   flex-direction: column;
-  gap: 0.375rem;
+  gap: 0.5rem;
+}
+
+.virtualItem {
+  padding-bottom: 0.5rem;
+}
+
+.skeletonRow {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 0.875rem;
+  min-height: 72px;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  margin-bottom: 0.5rem;
 }
 
 .skeletonLine {
@@ -43,24 +38,26 @@
 }
 
 .skeletonLineShort {
-  width: 120px;
+  width: 40%;
 }
 
 .skeletonLineLong {
-  width: 260px;
+  width: 70%;
 }
 
 .skeletonProgress {
-  width: 120px;
+  width: 100%;
   height: 4px;
   background-color: var(--border);
   border-radius: 2px;
-  flex-shrink: 0;
 }
 
 @media (max-width: 599px) {
+  .list {
+    padding: 0.5rem 0.75rem;
+  }
+
   .skeletonRow {
-    min-height: 56px;
-    padding: 0.75rem;
+    min-height: 80px;
   }
 }

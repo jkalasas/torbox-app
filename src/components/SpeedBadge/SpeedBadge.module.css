@@ -1,0 +1,52 @@
+.badge {
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background-color: var(--surface-elevated);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  box-shadow: none;
+  z-index: 50;
+  pointer-events: none;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+}
+
+.count {
+  font-size: 0.75rem;
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+.speeds {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.speed {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.125rem;
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+.download {
+  color: var(--primary);
+}
+
+@media (max-width: 599px) {
+  .badge {
+    display: none;
+  }
+}

@@ -60,7 +60,7 @@ export function AddDownloadModal({ opened, onClose, onAdd }: AddDownloadModalPro
   };
 
   return (
-    <Modal opened={opened} onClose={handleClose} title="Add download" size="sm" centered>
+    <Modal opened={opened} onClose={handleClose} title="Add download" size={480} centered>
       <div className={classes.content}>
         <div>
           <SegmentedControl

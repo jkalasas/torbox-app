@@ -1,28 +1,59 @@
-import { ActionIcon, Button, SegmentedControl, Text } from '@mantine/core';
-import { IconPlus, IconSettings } from '@tabler/icons-react';
+import { Button } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
+import { IconPlus } from '@tabler/icons-react';
 import { useCallback, useMemo, useState } from 'react';
 import { AddDownloadModal } from '../components/AddDownloadModal/AddDownloadModal';
+import { AppShell } from '../components/AppShell/AppShell';
+import { ContentHeader } from '../components/ContentHeader/ContentHeader';
 import { DownloadList } from '../components/DownloadList/DownloadList';
-import { DownloadTabs } from '../components/DownloadTabs/DownloadTabs';
-import { DownloadToolbar } from '../components/DownloadToolbar/DownloadToolbar';
 import { EmptyState } from '../components/EmptyState/EmptyState';
 import { ErrorBanner } from '../components/ErrorBanner/ErrorBanner';
 import { FileListModal } from '../components/FileListModal/FileListModal';
+import { IconRail } from '../components/IconRail/IconRail';
+import { MobileFilters } from '../components/MobileFilters/MobileFilters';
 import { SettingsModal } from '../components/SettingsModal/SettingsModal';
-import { StatusBar } from '../components/StatusBar/StatusBar';
+import { SideNav, type StatusFilter } from '../components/SideNav/SideNav';
+import { SpeedBadge } from '../components/SpeedBadge/SpeedBadge';
 import { useDownloads } from '../hooks/useDownloads';
 import { useLocalTransfers } from '../hooks/useLocalTransfers';
 import { useSettings } from '../hooks/useSettings';
 import type { CloudDownload, CloudSubTab, DownloadTab } from '../types/downloads';
 import classes from './Downloads.module.css';
 
-type CloudFilterStatus = 'all' | 'active' | 'inactive' | 'error';
-type LocalFilterStatus = 'all' | 'transferring' | 'complete' | 'error';
-type StatusFilter = CloudFilterStatus | LocalFilterStatus;
-
 function parseNumericId(id: string): number {
   const numeric = id.replace(/^\D+/, '');
   return Number(numeric);
+}
+
+function filterTitle(
+  activeTab: DownloadTab,
+  statusFilter: StatusFilter,
+  cloudSubTab: CloudSubTab
+): string {
+  if (activeTab === 'local') {
+    switch (statusFilter) {
+      case 'transferring':
+        return 'Transferring';
+      case 'complete':
+        return 'Complete';
+      case 'error':
+        return 'Error';
+      default:
+        return 'Local transfers';
+    }
+  }
+
+  const typeLabel = cloudSubTab === 'torrents' ? 'Torrents' : 'Web downloads';
+  switch (statusFilter) {
+    case 'active':
+      return `Active · ${typeLabel}`;
+    case 'inactive':
+      return `Inactive · ${typeLabel}`;
+    case 'error':
+      return `Error · ${typeLabel}`;
+    default:
+      return typeLabel;
+  }
 }
 
 export function DownloadsPage() {
@@ -36,6 +67,8 @@ export function DownloadsPage() {
   const [fileListDownload, setFileListDownload] = useState<CloudDownload | null>(null);
 
   const { settings, updateSetting, saveSettings, saving, saved, ready, error } = useSettings();
+  const isDesktop = useMediaQuery('(min-width: 900px)', true);
+  const isMobile = useMediaQuery('(max-width: 599px)', false);
 
   const settingsReady = ready && settings.api_key.length > 0;
 
@@ -64,6 +97,11 @@ export function DownloadsPage() {
     counts: localCounts,
   } = useLocalTransfers();
 
+  const handleTabChange = useCallback((tab: DownloadTab) => {
+    setActiveTab(tab);
+    setStatusFilter('all');
+  }, []);
+
   const handleRefresh = useCallback(() => {
     if (activeTab === 'cloud') {
       void refreshCloud();
@@ -83,7 +121,6 @@ export function DownloadsPage() {
     [downloads, startTransfer]
   );
 
-  // Filter cloud downloads by sub-tab, name search, and status
   const filteredDownloads = useMemo(() => {
     if (activeTab !== 'cloud') {
       return undefined;
@@ -133,151 +170,160 @@ export function DownloadsPage() {
   const hasActiveFilters = searchQuery.trim().length > 0 || statusFilter !== 'all';
   const isEmpty = !loading && (visibleItems?.length ?? 0) === 0;
 
-  // Determine error to show (cloud or local, unless dismissed)
   const activeError = activeTab === 'cloud' ? cloudError : localError;
   const errorKey = activeTab === 'cloud' ? 'cloud-error' : 'local-error';
   const showError = activeError !== null && !dismissedErrors.has(errorKey);
 
-  // Counts for the status bar
+  const sideNavCloudCounts = useMemo(
+    () => ({
+      active: downloads.filter((d) => d.status === 'downloading').length,
+      inactive: downloads.filter((d) => d.status === 'queued' || d.status === 'cached').length,
+      error: cloudCounts.error,
+      total: cloudCounts.total,
+    }),
+    [downloads, cloudCounts.error, cloudCounts.total]
+  );
+
+  const sideNavLocalCounts = useMemo(
+    () => ({
+      transferring: transfers.filter((t) => t.status === 'transferring').length,
+      complete: transfers.filter((t) => t.status === 'complete').length,
+      error: localCounts.error,
+      total: localCounts.total,
+    }),
+    [transfers, localCounts.error, localCounts.total]
+  );
+
+  const aggregateSpeed = useMemo(() => {
+    if (activeTab === 'cloud') {
+      return (filteredDownloads ?? []).reduce((sum, d) => sum + (d.speedBytesPerSec ?? 0), 0);
+    }
+    return (filteredTransfers ?? []).reduce((sum, t) => sum + (t.speedBytesPerSec ?? 0), 0);
+  }, [activeTab, filteredDownloads, filteredTransfers]);
+
   const statusCounts =
     activeTab === 'cloud'
-      ? { total: cloudCounts.total, active: cloudCounts.active, error: cloudCounts.error }
-      : { total: localCounts.total, active: localCounts.active, error: localCounts.error };
+      ? { total: cloudCounts.total, active: cloudCounts.active }
+      : { total: localCounts.total, active: localCounts.active };
+
+  const title = filterTitle(activeTab, statusFilter, cloudSubTab);
 
   return (
     <div className={classes.page}>
-      {/* Mobile header (visible only on small screens) */}
-      <header className={classes.mobileHeader}>
-        <Text className={classes.mobileTitle} fw={600} size="sm">
-          TorBox
-        </Text>
-        <ActionIcon
-          variant="subtle"
-          size="md"
-          color="gray"
-          aria-label="Settings"
-          onClick={() => setSettingsOpen(true)}
-        >
-          <IconSettings size={18} stroke={2} />
-        </ActionIcon>
-      </header>
+      <AppShell
+        rail={
+          !isMobile ? (
+            <IconRail
+              activeTab={activeTab}
+              onTabChange={handleTabChange}
+              onAdd={() => setAddModalOpen(true)}
+              onSettings={() => setSettingsOpen(true)}
+            />
+          ) : null
+        }
+        side={
+          isDesktop ? (
+            <SideNav
+              activeTab={activeTab}
+              statusFilter={statusFilter}
+              onStatusFilterChange={setStatusFilter}
+              cloudSubTab={cloudSubTab}
+              onCloudSubTabChange={setCloudSubTab}
+              torrentCount={cloudCounts.torrents}
+              webCount={cloudCounts.web}
+              cloudCounts={sideNavCloudCounts}
+              localCounts={sideNavLocalCounts}
+            />
+          ) : null
+        }
+        header={
+          <ContentHeader
+            title={title}
+            onRefresh={handleRefresh}
+            onSettings={() => setSettingsOpen(true)}
+            searchValue={searchQuery}
+            onSearchChange={setSearchQuery}
+            showMobileSettings={Boolean(isMobile)}
+          />
+        }
+        filters={
+          !isDesktop ? (
+            <MobileFilters
+              activeTab={activeTab}
+              onTabChange={handleTabChange}
+              cloudSubTab={cloudSubTab}
+              onCloudSubTabChange={setCloudSubTab}
+              statusFilter={statusFilter}
+              onStatusFilterChange={setStatusFilter}
+              cloudCount={cloudCounts.total}
+              localCount={localCounts.total}
+            />
+          ) : null
+        }
+        badge={
+          <SpeedBadge
+            downloadBytesPerSec={aggregateSpeed}
+            total={statusCounts.total}
+            active={statusCounts.active}
+          />
+        }
+      >
+        {showError && (
+          <ErrorBanner
+            message={activeError!}
+            onDismiss={() => setDismissedErrors((prev) => new Set(prev).add(errorKey))}
+            onRetry={handleRefresh}
+          />
+        )}
 
-      {/* Toolbar */}
-      <DownloadToolbar
-        onAdd={() => setAddModalOpen(true)}
-        onRefresh={handleRefresh}
-        onSettings={() => setSettingsOpen(true)}
-        searchValue={searchQuery}
-        onSearchChange={setSearchQuery}
-      />
-
-      {/* Tabs */}
-      <DownloadTabs
-        activeTab={activeTab}
-        onTabChange={(tab) => {
-          setActiveTab(tab);
-          setStatusFilter('all');
-        }}
-        cloudSubTab={cloudSubTab}
-        onCloudSubTabChange={setCloudSubTab}
-        cloudCount={cloudCounts.total}
-        localCount={localCounts.total}
-        torrentCount={cloudCounts.torrents}
-        webCount={cloudCounts.web}
-        showSubTabs={activeTab === 'cloud'}
-      />
-
-      {/* Status filter */}
-      <div className={classes.filterBar}>
-        <SegmentedControl
-          size="xs"
-          value={statusFilter}
-          onChange={(value) => setStatusFilter(value as StatusFilter)}
-          data={
-            activeTab === 'cloud'
-              ? [
-                  { value: 'all', label: 'All' },
-                  { value: 'active', label: 'Active' },
-                  { value: 'inactive', label: 'Inactive' },
-                  { value: 'error', label: 'Error' },
-                ]
-              : [
-                  { value: 'all', label: 'All' },
-                  { value: 'transferring', label: 'Transferring' },
-                  { value: 'complete', label: 'Complete' },
-                  { value: 'error', label: 'Error' },
-                ]
-          }
-          aria-label="Filter by status"
-        />
-      </div>
-
-      {/* Error banner */}
-      {showError && (
-        <ErrorBanner
-          message={activeError!}
-          onDismiss={() => setDismissedErrors((prev) => new Set(prev).add(errorKey))}
-          onRetry={handleRefresh}
-        />
-      )}
-
-      {/* Download list / empty state */}
-      {isEmpty ? (
-        <EmptyState
-          variant={hasActiveFilters ? 'no-matches' : 'onboarding'}
-          title={
-            activeTab === 'cloud'
-              ? settingsReady
-                ? 'No cloud downloads yet'
-                : 'API key required'
-              : 'No local transfers yet'
-          }
-          description={
-            activeTab === 'cloud'
-              ? settingsReady
-                ? 'Add a magnet link or torrent file to start downloading on TorBox.'
-                : 'Set your TorBox API key in Settings to get started.'
-              : 'Download cached files from TorBox to your device.'
-          }
-          actionLabel={activeTab === 'cloud' && !settingsReady ? 'Open Settings' : 'Add download'}
-          onAction={
-            activeTab === 'cloud' && !settingsReady
-              ? () => setSettingsOpen(true)
-              : () => setAddModalOpen(true)
-          }
-          onClearFilters={() => {
-            setSearchQuery('');
-            setStatusFilter('all');
-          }}
-        />
-      ) : (
-        <DownloadList
-          downloads={filteredDownloads}
-          transfers={filteredTransfers}
-          loading={loading}
-          onPause={pauseDownload}
-          onResume={resumeDownload}
-          onRemove={activeTab === 'cloud' ? removeDownload : removeTransfer}
-          onRetry={activeTab === 'cloud' ? retryDownload : retryTransfer}
-          onDownloadToDevice={activeTab === 'cloud' ? handleDownloadToDevice : undefined}
-          onOpenFiles={(id) => {
-            const download = downloads.find((d) => d.id === id);
-            if (download && download.files.length > 0) {
-              setFileListDownload(download);
+        {isEmpty ? (
+          <EmptyState
+            variant={hasActiveFilters ? 'no-matches' : 'onboarding'}
+            title={
+              activeTab === 'cloud'
+                ? settingsReady
+                  ? 'No cloud downloads yet'
+                  : 'API key required'
+                : 'No local transfers yet'
             }
-          }}
-        />
-      )}
+            description={
+              activeTab === 'cloud'
+                ? settingsReady
+                  ? 'Add a magnet link or torrent file to start downloading on TorBox.'
+                  : 'Set your TorBox API key in Settings to get started.'
+                : 'Download cached files from TorBox to your device.'
+            }
+            actionLabel={activeTab === 'cloud' && !settingsReady ? 'Open Settings' : 'Add download'}
+            onAction={
+              activeTab === 'cloud' && !settingsReady
+                ? () => setSettingsOpen(true)
+                : () => setAddModalOpen(true)
+            }
+            onClearFilters={() => {
+              setSearchQuery('');
+              setStatusFilter('all');
+            }}
+          />
+        ) : (
+          <DownloadList
+            downloads={filteredDownloads}
+            transfers={filteredTransfers}
+            loading={loading}
+            onPause={pauseDownload}
+            onResume={resumeDownload}
+            onRemove={activeTab === 'cloud' ? removeDownload : removeTransfer}
+            onRetry={activeTab === 'cloud' ? retryDownload : retryTransfer}
+            onDownloadToDevice={activeTab === 'cloud' ? handleDownloadToDevice : undefined}
+            onOpenFiles={(id) => {
+              const download = downloads.find((d) => d.id === id);
+              if (download && download.files.length > 0) {
+                setFileListDownload(download);
+              }
+            }}
+          />
+        )}
+      </AppShell>
 
-      {/* Status bar */}
-      <StatusBar
-        activeTab={activeTab}
-        total={statusCounts.total}
-        active={statusCounts.active}
-        error={statusCounts.error}
-      />
-
-      {/* Mobile Add button bottom bar */}
       <div className={classes.mobileAddBar}>
         <Button
           className={classes.mobileAddButton}
@@ -290,7 +336,6 @@ export function DownloadsPage() {
         </Button>
       </div>
 
-      {/* Add download modal */}
       <AddDownloadModal
         opened={addModalOpen}
         onClose={() => setAddModalOpen(false)}
@@ -304,7 +349,6 @@ export function DownloadsPage() {
         }}
       />
 
-      {/* File list modal */}
       <FileListModal
         opened={fileListDownload !== null}
         onClose={() => setFileListDownload(null)}
@@ -322,7 +366,6 @@ export function DownloadsPage() {
         }}
       />
 
-      {/* Settings modal */}
       <SettingsModal
         opened={settingsOpen}
         onClose={() => setSettingsOpen(false)}

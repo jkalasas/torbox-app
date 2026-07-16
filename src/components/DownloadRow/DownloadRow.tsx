@@ -1,6 +1,7 @@
 import { ActionIcon, Tooltip } from '@mantine/core';
 import {
   IconDownload,
+  IconFolder,
   IconPlayerPause,
   IconPlayerPlay,
   IconRefresh,
@@ -14,50 +15,25 @@ import classes from './DownloadRow.module.css';
 export interface DownloadRowProps {
   id: string;
   name: string;
-  /** Normalized status across cloud + local */
   status: 'queued' | 'downloading' | 'cached' | 'complete' | 'error';
-  progress: number; // 0–100
+  progress: number;
   sizeBytes: number;
   speedBytesPerSec?: number;
   etaSeconds?: number;
   errorMessage?: string;
   paused?: boolean;
-  /** Cloud-specific */
   type?: 'torrent' | 'web';
   cached?: boolean;
   seeders?: number;
   peers?: number;
-  /** Local-specific */
   destinationPath?: string;
-  /** Callbacks */
   onPause?: (id: string) => void;
   onResume?: (id: string) => void;
   onRemove?: (id: string) => void;
   onRetry?: (id: string) => void;
   onDownloadToDevice?: (id: string) => void;
-  /** Open file list for cached / completed downloads */
   onOpenFiles?: (id: string) => void;
-  /** Whether files are available (cached or complete) */
   hasFiles?: boolean;
-}
-
-function getDotClass(status: DownloadRowProps['status'], paused: boolean): string {
-  if (paused) {
-    return classes.dotPaused;
-  }
-  switch (status) {
-    case 'downloading':
-      return classes.dotDownloading;
-    case 'queued':
-      return classes.dotQueued;
-    case 'cached':
-    case 'complete':
-      return classes.dotComplete;
-    case 'error':
-      return classes.dotError;
-    default:
-      return classes.dotQueued;
-  }
 }
 
 function getProgressFillClass(status: DownloadRowProps['status']): string {
@@ -69,6 +45,31 @@ function getProgressFillClass(status: DownloadRowProps['status']): string {
       return classes.progressFillError;
     default:
       return classes.progressFill;
+  }
+}
+
+function statusLabel(
+  status: DownloadRowProps['status'],
+  paused: boolean,
+  type?: 'torrent' | 'web',
+  cached?: boolean
+): string {
+  if (paused) {
+    return 'Paused';
+  }
+  switch (status) {
+    case 'downloading':
+      return 'Downloading';
+    case 'queued':
+      return 'Queued';
+    case 'cached':
+      return cached ? 'Already cached' : 'Cached';
+    case 'complete':
+      return 'Complete';
+    case 'error':
+      return 'Error';
+    default:
+      return type === 'web' ? 'Web' : 'Torrent';
   }
 }
 
@@ -98,10 +99,10 @@ export function DownloadRow({
   const isActive = status === 'downloading' && !paused;
   const isComplete = status === 'cached' || status === 'complete';
   const isError = status === 'error';
-
-  const dotClass = getDotClass(status, paused);
   const progressFillClass = getProgressFillClass(status);
   const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
+
+  const downloadedBytes = Math.round((sizeBytes * Math.min(progress, 100)) / 100);
 
   return (
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions
@@ -123,118 +124,128 @@ export function DownloadRow({
       tabIndex={hasFiles ? 0 : undefined}
       aria-label={hasFiles ? `View files for ${name}` : undefined}
     >
-      {/* Status dot */}
-      <div className={`${classes.dot} ${dotClass}`} aria-hidden="true" />
+      <div className={classes.topLine}>
+        <span className={classes.name} title={name}>
+          {name}
+        </span>
 
-      {/* Content */}
-      <div className={classes.content}>
-        {/* Top line: name + progress */}
-        <div className={classes.topLine}>
-          <span className={classes.name} title={name}>
-            {name}
-          </span>
-          <div
-            className={classes.progressWrapper}
-            role="progressbar"
-            aria-label={`${name} progress: ${Math.round(progress)}%`}
-            aria-valuenow={Math.round(progress)}
-            aria-valuemin={0}
-            aria-valuemax={100}
-          >
-            <div className={classes.progressTrack}>
-              <div
-                className={`${classes.progressFill} ${progressFillClass}`}
-                style={{ transform: `scaleX(${progress / 100})` }}
-              />
-            </div>
-            <div className={classes.progressPercent}>{Math.round(progress)}%</div>
-          </div>
+        {/* eslint-disable-next-line jsx-a11y/interactive-supports-focus */}
+        <div
+          className={classes.actions}
+          role="toolbar"
+          aria-label={`Actions for ${name}`}
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+        >
+          {isActive && onPause && (
+            <Tooltip label="Pause" withArrow>
+              <ActionIcon
+                variant="subtle"
+                size="sm"
+                className={classes.actionButton}
+                onClick={() => onPause(id)}
+                aria-label={`Pause ${name}`}
+              >
+                <IconPlayerPause size={14} stroke={2} />
+              </ActionIcon>
+            </Tooltip>
+          )}
+
+          {paused && onResume && (
+            <Tooltip label="Resume" withArrow>
+              <ActionIcon
+                variant="subtle"
+                size="sm"
+                className={classes.actionButton}
+                onClick={() => onResume(id)}
+                aria-label={`Resume ${name}`}
+              >
+                <IconPlayerPlay size={14} stroke={2} />
+              </ActionIcon>
+            </Tooltip>
+          )}
+
+          {isError && onRetry && (
+            <Tooltip label="Retry" withArrow>
+              <ActionIcon
+                variant="subtle"
+                size="sm"
+                className={classes.actionButton}
+                onClick={() => onRetry(id)}
+                aria-label={`Retry ${name}`}
+              >
+                <IconRefresh size={14} stroke={2} />
+              </ActionIcon>
+            </Tooltip>
+          )}
+
+          {isComplete && onDownloadToDevice && (
+            <Tooltip label="Download to device" withArrow>
+              <ActionIcon
+                variant="subtle"
+                size="sm"
+                className={classes.actionButton}
+                onClick={() => onDownloadToDevice(id)}
+                aria-label={`Download ${name} to device`}
+              >
+                <IconDownload size={14} stroke={2} />
+              </ActionIcon>
+            </Tooltip>
+          )}
+
+          {hasFiles && onOpenFiles && (
+            <Tooltip label="Files" withArrow>
+              <ActionIcon
+                variant="subtle"
+                size="sm"
+                className={classes.actionButton}
+                onClick={() => onOpenFiles(id)}
+                aria-label={`View files for ${name}`}
+              >
+                <IconFolder size={14} stroke={2} />
+              </ActionIcon>
+            </Tooltip>
+          )}
+
+          {onRemove && (
+            <Tooltip label="Remove" withArrow>
+              <ActionIcon
+                variant="subtle"
+                size="sm"
+                className={`${classes.actionButton} ${classes.actionButtonDanger}`}
+                onClick={() => setRemoveConfirmOpen(true)}
+                aria-label={`Remove ${name}`}
+              >
+                <IconTrash size={14} stroke={2} />
+              </ActionIcon>
+            </Tooltip>
+          )}
         </div>
+      </div>
 
-        {/* Metadata line */}
-        <div className={classes.meta}>
+      <div
+        className={classes.progressTrack}
+        role="progressbar"
+        aria-label={`${name} progress: ${Math.round(progress)}%`}
+        aria-valuenow={Math.round(progress)}
+        aria-valuemin={0}
+        aria-valuemax={100}
+      >
+        <div
+          className={`${classes.progressFill} ${progressFillClass}`}
+          style={{ transform: `scaleX(${Math.min(progress, 100) / 100})` }}
+        />
+      </div>
+
+      <div className={classes.meta}>
+        <div className={classes.metaLeft}>
           <span className={`${classes.metaItem} ${classes.metaMono}`}>
-            {formatBytes(sizeBytes)}
+            {formatBytes(downloadedBytes)} / {formatBytes(sizeBytes)}
           </span>
-
-          {isActive && speedBytesPerSec && (
-            <>
-              <span className={classes.metaSeparator} aria-hidden="true">
-                ·
-              </span>
-              <span className={`${classes.metaItem} ${classes.metaMono}`}>
-                {formatSpeed(speedBytesPerSec)}
-              </span>
-            </>
-          )}
-
-          {isActive && etaSeconds && etaSeconds > 0 && (
-            <>
-              <span className={classes.metaSeparator} aria-hidden="true">
-                ·
-              </span>
-              <span className={classes.metaItem}>{formatDuration(etaSeconds)} left</span>
-            </>
-          )}
-
-          {paused && (
-            <>
-              <span className={classes.metaSeparator} aria-hidden="true">
-                ·
-              </span>
-              <span className={classes.metaItem}>Paused</span>
-            </>
-          )}
-
-          {isComplete && type && (
-            <>
-              <span className={classes.metaSeparator} aria-hidden="true">
-                ·
-              </span>
-              <span className={classes.metaItem}>
-                {cached !== undefined ? (cached ? 'Already cached' : 'Downloaded') : 'Cached'}
-              </span>
-            </>
-          )}
-
-          {isComplete && !type && (
-            <>
-              <span className={classes.metaSeparator} aria-hidden="true">
-                ·
-              </span>
-              <span className={classes.metaItem}>Complete</span>
-            </>
-          )}
-
-          {type && (
-            <>
-              <span className={classes.metaSeparator} aria-hidden="true">
-                ·
-              </span>
-              <span className={classes.metaItem}>{type === 'torrent' ? 'Torrent' : 'Web'}</span>
-            </>
-          )}
-
-          {seeders !== undefined && peers !== undefined && (
-            <>
-              <span className={classes.metaSeparator} aria-hidden="true">
-                ·
-              </span>
-              <span className={classes.peerInfo}>
-                {seeders} seeds · {peers} peers
-              </span>
-            </>
-          )}
-
-          {destinationPath && (
-            <>
-              <span className={classes.metaSeparator} aria-hidden="true">
-                ·
-              </span>
-              <span className={classes.metaItem}>{destinationPath}</span>
-            </>
-          )}
-
+          <span className={classes.metaSeparator} aria-hidden="true">
+            ·
+          </span>
+          <span className={classes.metaItem}>{statusLabel(status, paused, type, cached)}</span>
           {isError && errorMessage && (
             <>
               <span className={classes.metaSeparator} aria-hidden="true">
@@ -243,87 +254,31 @@ export function DownloadRow({
               <span className={classes.errorText}>{errorMessage}</span>
             </>
           )}
+          {destinationPath && (
+            <>
+              <span className={classes.metaSeparator} aria-hidden="true">
+                ·
+              </span>
+              <span className={classes.metaItem}>{destinationPath}</span>
+            </>
+          )}
         </div>
-      </div>
 
-      {/* Action buttons (hidden until hover on desktop) */}
-      {/* eslint-disable-next-line jsx-a11y/interactive-supports-focus */}
-      <div
-        className={classes.actions}
-        role="toolbar"
-        aria-label={`Actions for ${name}`}
-        onClick={(e) => e.stopPropagation()}
-        onKeyDown={(e) => e.stopPropagation()}
-      >
-        {isActive && onPause && (
-          <Tooltip label="Pause" withArrow>
-            <ActionIcon
-              variant="subtle"
-              size="md"
-              className={classes.actionButton}
-              onClick={() => onPause(id)}
-              aria-label={`Pause ${name}`}
-            >
-              <IconPlayerPause size={16} stroke={2} />
-            </ActionIcon>
-          </Tooltip>
-        )}
-
-        {paused && onResume && (
-          <Tooltip label="Resume" withArrow>
-            <ActionIcon
-              variant="subtle"
-              size="md"
-              className={classes.actionButton}
-              onClick={() => onResume(id)}
-              aria-label={`Resume ${name}`}
-            >
-              <IconPlayerPlay size={16} stroke={2} />
-            </ActionIcon>
-          </Tooltip>
-        )}
-
-        {isError && onRetry && (
-          <Tooltip label="Retry" withArrow>
-            <ActionIcon
-              variant="subtle"
-              size="md"
-              className={classes.actionButton}
-              onClick={() => onRetry(id)}
-              aria-label={`Retry ${name}`}
-            >
-              <IconRefresh size={16} stroke={2} />
-            </ActionIcon>
-          </Tooltip>
-        )}
-
-        {isComplete && onDownloadToDevice && (
-          <Tooltip label="Download to device" withArrow>
-            <ActionIcon
-              variant="subtle"
-              size="md"
-              className={classes.actionButton}
-              onClick={() => onDownloadToDevice(id)}
-              aria-label={`Download ${name} to device`}
-            >
-              <IconDownload size={16} stroke={2} />
-            </ActionIcon>
-          </Tooltip>
-        )}
-
-        {onRemove && (
-          <Tooltip label="Remove" withArrow>
-            <ActionIcon
-              variant="subtle"
-              size="md"
-              className={`${classes.actionButton} ${classes.actionButtonDanger}`}
-              onClick={() => setRemoveConfirmOpen(true)}
-              aria-label={`Remove ${name}`}
-            >
-              <IconTrash size={16} stroke={2} />
-            </ActionIcon>
-          </Tooltip>
-        )}
+        <div className={classes.metaRight}>
+          {isActive && speedBytesPerSec !== undefined && (
+            <span className={`${classes.metaItem} ${classes.metaMono}`}>
+              ↓ {formatSpeed(speedBytesPerSec)}
+            </span>
+          )}
+          {isActive && etaSeconds !== undefined && etaSeconds > 0 && (
+            <span className={classes.metaItem}>Remaining {formatDuration(etaSeconds)}</span>
+          )}
+          {seeders !== undefined && peers !== undefined && (
+            <span className={classes.metaItem}>
+              {seeders} seeds · {peers} peers
+            </span>
+          )}
+        </div>
       </div>
 
       {onRemove && (
