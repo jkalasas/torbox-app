@@ -91,6 +91,8 @@ export function DownloadsPage() {
     loading: localLoading,
     error: localError,
     startTransfer,
+    pauseTransfer,
+    resumeTransfer,
     removeTransfer,
     retryTransfer,
     refresh: refreshLocal,
@@ -309,8 +311,8 @@ export function DownloadsPage() {
             downloads={filteredDownloads}
             transfers={filteredTransfers}
             loading={loading}
-            onPause={pauseDownload}
-            onResume={resumeDownload}
+            onPause={activeTab === 'cloud' ? pauseDownload : pauseTransfer}
+            onResume={activeTab === 'cloud' ? resumeDownload : resumeTransfer}
             onRemove={activeTab === 'cloud' ? removeDownload : removeTransfer}
             onRetry={activeTab === 'cloud' ? retryDownload : retryTransfer}
             onDownloadToDevice={activeTab === 'cloud' ? handleDownloadToDevice : undefined}

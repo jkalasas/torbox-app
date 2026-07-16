@@ -278,6 +278,8 @@ impl DownloadManager {
         // Download via chunked downloader
         let app_for_progress = app.clone();
         let download_id_for_progress = download_id.clone();
+        let size_bytes = download.size_bytes;
+        let progress_state = std::sync::Mutex::new((std::time::Instant::now(), 0.0f64));
         let result = self
             .chunked
             .download(
@@ -287,14 +289,38 @@ impl DownloadManager {
                 download.size_bytes,
                 pause_rx,
                 move |progress| {
+                    let (speed_bytes_per_sec, eta_seconds) = {
+                        let mut state = progress_state.lock().unwrap_or_else(|e| e.into_inner());
+                        let (last_instant, last_progress) = *state;
+                        let now = std::time::Instant::now();
+                        let dt = now.duration_since(last_instant).as_secs_f64();
+                        let speed = if dt > 0.0 && size_bytes > 0 && progress > last_progress {
+                            let bytes_delta =
+                                ((progress - last_progress) * size_bytes as f64).max(0.0);
+                            Some((bytes_delta / dt).round() as u64)
+                        } else {
+                            None
+                        };
+                        let eta = match speed {
+                            Some(s) if s > 0 && progress < 1.0 => {
+                                let remaining =
+                                    ((1.0 - progress).max(0.0) * size_bytes as f64).round() as u64;
+                                Some(remaining / s)
+                            }
+                            _ => None,
+                        };
+                        *state = (now, progress);
+                        (speed, eta)
+                    };
+
                     app_for_progress
                         .emit(
                             "download-progress",
                             DownloadProgressEvent {
                                 download_id: download_id_for_progress.clone(),
                                 progress,
-                                speed_bytes_per_sec: None,
-                                eta_seconds: None,
+                                speed_bytes_per_sec,
+                                eta_seconds,
                             },
                         )
                         .ok();
@@ -320,6 +346,13 @@ impl DownloadManager {
                 self.persistence
                     .update_download_status(&download_id, &DownloadStatus::Paused, None)
                     .ok();
+                app.emit(
+                    "download-paused",
+                    DownloadPausedEvent {
+                        download_id: download_id.clone(),
+                    },
+                )
+                .ok();
             }
             Err(e) => {
                 self.persistence
@@ -341,16 +374,44 @@ impl DownloadManager {
         Ok(())
     }
 
-    pub async fn pause_download(&self, download_id: &str) -> Result<(), String> {
+    pub async fn pause_download(&self, app: &AppHandle, download_id: &str) -> Result<(), String> {
         if let Some(tx) = self.active_downloads.lock().await.remove(download_id) {
             tx.send(true).ok();
             self.persistence
                 .update_download_status(download_id, &DownloadStatus::Paused, None)
                 .map_err(|e| e.to_string())?;
-            Ok(())
-        } else {
-            Err("Download not active".to_string())
+            app.emit(
+                "download-paused",
+                DownloadPausedEvent {
+                    download_id: download_id.to_string(),
+                },
+            )
+            .ok();
+            return Ok(());
         }
+
+        // Idempotent: already paused (or queued) is not an error.
+        let downloads = self
+            .persistence
+            .list_downloads()
+            .map_err(|e| e.to_string())?;
+        if let Some(download) = downloads.iter().find(|d| d.id == download_id) {
+            if matches!(
+                download.status,
+                DownloadStatus::Paused | DownloadStatus::Queued
+            ) {
+                app.emit(
+                    "download-paused",
+                    DownloadPausedEvent {
+                        download_id: download_id.to_string(),
+                    },
+                )
+                .ok();
+                return Ok(());
+            }
+        }
+
+        Err("Download not active".to_string())
     }
 
     pub async fn resume_download(&self, download_id: &str) -> Result<(), String> {

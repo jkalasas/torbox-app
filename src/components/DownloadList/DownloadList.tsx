@@ -49,6 +49,7 @@ function mapTransferToRow(t: LocalTransfer): DownloadRowProps {
     speedBytesPerSec: t.speedBytesPerSec,
     etaSeconds: t.etaSeconds,
     errorMessage: t.errorMessage,
+    paused: t.paused,
     destinationPath: t.destinationPath,
   };
 }

@@ -17,8 +17,9 @@ pub async fn start_download(
 pub async fn pause_download(
     download_id: String,
     manager: State<'_, Arc<DownloadManager>>,
+    app: tauri::AppHandle,
 ) -> Result<(), String> {
-    manager.pause_download(&download_id).await
+    manager.pause_download(&app, &download_id).await
 }
 
 #[tauri::command]

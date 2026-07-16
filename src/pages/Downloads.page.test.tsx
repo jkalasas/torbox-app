@@ -24,6 +24,8 @@ vi.mock('../hooks/useLocalTransfers', () => ({
     loading: false,
     error: null,
     startTransfer: vi.fn(),
+    pauseTransfer: vi.fn(),
+    resumeTransfer: vi.fn(),
     removeTransfer: vi.fn(),
     retryTransfer: vi.fn(),
     refresh: vi.fn(),

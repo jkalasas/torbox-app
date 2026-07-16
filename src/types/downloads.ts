@@ -53,6 +53,7 @@ export interface LocalTransfer {
   speedBytesPerSec?: number;
   etaSeconds?: number;
   errorMessage?: string;
+  paused?: boolean;
   /** Local destination path */
   destinationPath?: string;
   /** Reference to the cloud download this came from */

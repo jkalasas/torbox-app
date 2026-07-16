@@ -156,10 +156,16 @@ impl ChunkedDownloader {
 
             completed_count += 1;
             let progress = completed_count as f64 / total as f64;
-            (on_progress)(progress);
             self.persistence
                 .update_chunk_counts(download_id, total, completed_count)
                 .map_err(|e| e.to_string())?;
+
+            // If pause was requested mid-chunk, stop before reporting active progress.
+            if *pause_rx.borrow() {
+                return Err("Paused".to_string());
+            }
+
+            (on_progress)(progress);
         }
 
         // All chunks done

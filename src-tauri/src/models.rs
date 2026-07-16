@@ -110,3 +110,8 @@ pub struct DownloadQueuedEvent {
     pub download_id: String,
     pub position: usize,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DownloadPausedEvent {
+    pub download_id: String,
+}

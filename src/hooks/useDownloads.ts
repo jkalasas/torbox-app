@@ -330,7 +330,8 @@ export function useDownloads(apiKey: string): UseDownloadsReturn {
 
   const counts = {
     total: downloads.length,
-    active: downloads.filter((d) => d.status === 'downloading' || d.status === 'queued').length,
+    // Match Active filter / SideNav: only in-progress downloads, not queued.
+    active: downloads.filter((d) => d.status === 'downloading').length,
     error: downloads.filter((d) => d.status === 'error').length,
     torrents: downloads.filter((d) => d.type === 'torrent').length,
     web: downloads.filter((d) => d.type === 'web').length,

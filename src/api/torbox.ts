@@ -31,13 +31,13 @@ interface TorBoxEnvelope<T> {
   data: T | null;
 }
 
-async function extractData<T>(response: Response): Promise<T> {
+async function extractEnvelope(response: Response): Promise<TorBoxEnvelope<unknown>> {
   if (!response.ok) {
     const text = await response.text().catch(() => '');
     throw new TorBoxApiError(`HTTP ${response.status}: ${text}`, response.status);
   }
 
-  const envelope = (await response.json()) as TorBoxEnvelope<T>;
+  const envelope = (await response.json()) as TorBoxEnvelope<unknown>;
 
   if (!envelope.success) {
     throw new TorBoxApiError(
@@ -47,11 +47,21 @@ async function extractData<T>(response: Response): Promise<T> {
     );
   }
 
+  return envelope;
+}
+
+async function extractData<T>(response: Response): Promise<T> {
+  const envelope = await extractEnvelope(response);
+
   if (envelope.data === null || envelope.data === undefined) {
     throw new TorBoxApiError('API returned success but no data', response.status);
   }
 
-  return envelope.data;
+  return envelope.data as T;
+}
+
+async function extractSuccess(response: Response): Promise<void> {
+  await extractEnvelope(response);
 }
 
 /** The TorBox list endpoints return an array when no `id` is given,
@@ -111,7 +121,7 @@ async function apiPostForm(apiKey: string, path: string, form: FormData): Promis
     headers: { Authorization: `Bearer ${apiKey}` },
     body: form,
   });
-  await extractData<unknown>(response);
+  await extractSuccess(response);
 }
 
 async function apiPostJson(
@@ -127,7 +137,7 @@ async function apiPostJson(
     },
     body: JSON.stringify(body),
   });
-  await extractData<unknown>(response);
+  await extractSuccess(response);
 }
 
 // ---------------------------------------------------------------------------
@@ -227,14 +237,26 @@ interface StateMapping {
 }
 
 const STATE_MAP: Record<string, StateMapping> = {
-  metaDL: { status: 'queued', paused: false },
+  metaDL: { status: 'downloading', paused: false },
+  checkingResumeData: { status: 'downloading', paused: false },
   queued: { status: 'queued', paused: false },
+  queuedDL: { status: 'queued', paused: false },
   downloading: { status: 'downloading', paused: false },
+  forcedDL: { status: 'downloading', paused: false },
+  stalledDL: { status: 'downloading', paused: false },
+  'stalled (no seeds)': { status: 'downloading', paused: false },
   uploading: { status: 'cached', paused: false },
+  stalledUP: { status: 'cached', paused: false },
+  forcedUP: { status: 'cached', paused: false },
+  queuedUP: { status: 'cached', paused: false },
   completed: { status: 'cached', paused: false },
   cached: { status: 'cached', paused: false },
   error: { status: 'error', paused: false },
   dead: { status: 'error', paused: false },
+  missingFiles: { status: 'error', paused: false },
+  paused: { status: 'downloading', paused: true },
+  pausedDL: { status: 'downloading', paused: true },
+  pausedUP: { status: 'cached', paused: true },
   stopped: { status: 'downloading', paused: true },
 };
 
@@ -245,7 +267,7 @@ function mapDownloadState(state: string | null | undefined, active: boolean): St
   if (!active) {
     return { status: 'downloading', paused: true };
   }
-  return { status: 'queued', paused: false };
+  return { status: 'downloading', paused: false };
 }
 
 // ---------------------------------------------------------------------------
@@ -357,9 +379,15 @@ export async function fetchDownloads(
   apiKey: string,
   signal?: AbortSignal
 ): Promise<CloudDownload[]> {
+  // bypass_cache=true is required for live speed/progress; without it TorBox may
+  // serve list stats that are up to 600s stale (often showing 0 B/s).
   const [torrentsResult, webDownloadsResult] = await Promise.allSettled([
-    apiGet<unknown>(apiKey, 'torrents/mylist', signal).then(normalizeList<TorrentListData>),
-    apiGet<unknown>(apiKey, 'webdl/mylist', signal).then(normalizeList<WebDownloadListData>),
+    apiGet<unknown>(apiKey, 'torrents/mylist?bypass_cache=true', signal).then(
+      normalizeList<TorrentListData>
+    ),
+    apiGet<unknown>(apiKey, 'webdl/mylist?bypass_cache=true', signal).then(
+      normalizeList<WebDownloadListData>
+    ),
   ]);
 
   const torrents = torrentsResult.status === 'fulfilled' ? torrentsResult.value : [];
@@ -410,10 +438,9 @@ export async function controlDownload(
   const numericId = Number(id.slice(2));
 
   if (type === 'torrent') {
-    const op = operation === 'pause' ? 'stop_seeding' : (operation as string);
     await apiPostJson(apiKey, 'torrents/controltorrent', {
       torrent_id: numericId,
-      operation: op,
+      operation,
       all: false,
     });
   } else {
