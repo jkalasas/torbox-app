@@ -14,10 +14,6 @@
   background-color: var(--surface-elevated);
 }
 
-.row:hover .actions {
-  opacity: 1;
-}
-
 /* File icon */
 .fileIcon {
   flex-shrink: 0;
@@ -42,7 +38,6 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  text-wrap: pretty;
 }
 
 /* Meta line */
@@ -74,30 +69,43 @@
 
 /* Infected badge */
 .infectedBadge {
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   font-weight: 600;
+  line-height: 1.5;
   color: var(--danger);
-  text-transform: uppercase;
-  background-color: oklch(50% 0.18 25deg / 0.12);
+  background-color: oklch(from var(--danger) l c h / 0.12);
   padding: 0.125rem 0.375rem;
   border-radius: 3px;
 }
 
-/* Action buttons (visible on hover) */
+/* Action buttons (always visible but muted, brighten on hover/focus) */
 .actions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
   flex-shrink: 0;
-  opacity: 0;
+  opacity: 1;
   transition: opacity 150ms ease-out;
 }
 
 .actionButton {
   color: var(--ink-muted);
+  min-height: 44px;
+  min-width: 44px;
+  opacity: 0.6;
+  transition:
+    opacity 150ms ease-out,
+    color 150ms ease-out;
 }
 
-.actionButton:hover {
+.row:hover .actionButton,
+.actionButton:hover,
+.actionButton:focus-visible {
+  opacity: 1;
+}
+
+.actionButton:hover,
+.actionButton:focus-visible {
   color: var(--ink);
 }
 
@@ -110,6 +118,10 @@
   }
 
   .actions {
+    opacity: 1;
+  }
+
+  .actionButton {
     opacity: 1;
   }
 }

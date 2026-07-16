@@ -6,7 +6,9 @@ import {
   IconRefresh,
   IconTrash,
 } from '@tabler/icons-react';
+import { useState } from 'react';
 import { formatBytes, formatDuration, formatSpeed } from '../../utils/format';
+import { ConfirmDialog } from '../ConfirmDialog/ConfirmDialog';
 import classes from './DownloadRow.module.css';
 
 export interface DownloadRowProps {
@@ -99,6 +101,7 @@ export function DownloadRow({
 
   const dotClass = getDotClass(status, paused);
   const progressFillClass = getProgressFillClass(status);
+  const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
 
   return (
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions
@@ -130,13 +133,20 @@ export function DownloadRow({
           <span className={classes.name} title={name}>
             {name}
           </span>
-          <div className={classes.progressWrapper}>
-            <progress
-              className={`${classes.progressFill} ${progressFillClass}`}
-              value={Math.round(progress)}
-              max={100}
-              aria-label={`${name} progress: ${Math.round(progress)}%`}
-            />
+          <div
+            className={classes.progressWrapper}
+            role="progressbar"
+            aria-label={`${name} progress: ${Math.round(progress)}%`}
+            aria-valuenow={Math.round(progress)}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          >
+            <div className={classes.progressTrack}>
+              <div
+                className={`${classes.progressFill} ${progressFillClass}`}
+                style={{ transform: `scaleX(${progress / 100})` }}
+              />
+            </div>
             <div className={classes.progressPercent}>{Math.round(progress)}%</div>
           </div>
         </div>
@@ -307,7 +317,7 @@ export function DownloadRow({
               variant="subtle"
               size="md"
               className={`${classes.actionButton} ${classes.actionButtonDanger}`}
-              onClick={() => onRemove(id)}
+              onClick={() => setRemoveConfirmOpen(true)}
               aria-label={`Remove ${name}`}
             >
               <IconTrash size={16} stroke={2} />
@@ -315,6 +325,22 @@ export function DownloadRow({
           </Tooltip>
         )}
       </div>
+
+      {onRemove && (
+        <ConfirmDialog
+          opened={removeConfirmOpen}
+          onClose={() => setRemoveConfirmOpen(false)}
+          onConfirm={() => {
+            onRemove(id);
+            setRemoveConfirmOpen(false);
+          }}
+          title="Remove download"
+          description={`Are you sure you want to remove "${name}"? This action cannot be undone.`}
+          confirmLabel="Remove"
+          cancelLabel="Cancel"
+          confirmColor="red"
+        />
+      )}
     </div>
   );
 }

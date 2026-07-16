@@ -33,35 +33,32 @@
 
 @media (max-width: 599px) {
   .toolbar {
-    padding: 0.5rem 0.75rem;
-    /* On mobile the toolbar becomes a bottom bar */
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background-color: var(--surface);
-    border-top: 1px solid var(--border);
-    border-bottom: none;
-    z-index: 100;
-    justify-content: center;
-    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+    /* Toolbar becomes a top bar on mobile; Add button moves to the bottom bar */
+    position: static;
+    border-top: none;
+    border-bottom: 1px solid var(--border);
+    background-color: var(--bg);
+    justify-content: flex-start;
+    padding-bottom: 0.5rem;
   }
 
   .addButton {
-    width: 100%;
-    max-width: 360px;
-  }
-
-  .addButton button {
-    --button-height: 44px;
-    width: 100%;
-  }
-
-  .magnetInput {
     display: none;
   }
 
-  .refreshButton,
+  .magnetInput {
+    display: flex;
+    flex: 1;
+  }
+
+  .magnetInput input {
+    min-height: 44px;
+  }
+
+  .refreshButton {
+    color: var(--ink-muted);
+  }
+
   .settingsButton {
     display: none;
   }

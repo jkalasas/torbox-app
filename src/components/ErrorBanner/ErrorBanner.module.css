@@ -5,8 +5,8 @@
   align-items: flex-start;
   gap: 0.625rem;
   padding: 0.625rem 0.75rem;
-  background-color: var(--surface);
-  border-left: 1px solid var(--danger);
+  background-color: var(--danger-bg);
+  border-left: 3px solid var(--danger);
   margin: 0;
   border-bottom: 1px solid var(--border);
 }
@@ -19,9 +19,27 @@
 
 .message {
   flex: 1;
-  font-size: 0.8125rem;
+  font-size: var(--font-size-sm);
   color: var(--ink);
   line-height: 1.5;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.retry {
+  color: var(--danger);
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.retry:hover {
+  color: var(--danger);
+  background-color: oklch(50% 0.18 25deg / 0.08);
 }
 
 .dismiss {

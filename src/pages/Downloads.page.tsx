@@ -1,10 +1,11 @@
-import { ActionIcon, SegmentedControl, Text, TextInput } from '@mantine/core';
-import { IconSearch, IconSettings } from '@tabler/icons-react';
+import { ActionIcon, Button, SegmentedControl, Text } from '@mantine/core';
+import { IconPlus, IconSettings } from '@tabler/icons-react';
 import { useCallback, useMemo, useState } from 'react';
 import { AddDownloadModal } from '../components/AddDownloadModal/AddDownloadModal';
 import { DownloadList } from '../components/DownloadList/DownloadList';
 import { DownloadTabs } from '../components/DownloadTabs/DownloadTabs';
 import { DownloadToolbar } from '../components/DownloadToolbar/DownloadToolbar';
+import { EmptyState } from '../components/EmptyState/EmptyState';
 import { ErrorBanner } from '../components/ErrorBanner/ErrorBanner';
 import { FileListModal } from '../components/FileListModal/FileListModal';
 import { SettingsModal } from '../components/SettingsModal/SettingsModal';
@@ -12,14 +13,12 @@ import { StatusBar } from '../components/StatusBar/StatusBar';
 import { useDownloads } from '../hooks/useDownloads';
 import { useLocalTransfers } from '../hooks/useLocalTransfers';
 import { useSettings } from '../hooks/useSettings';
-import type {
-  CloudDownload,
-  CloudDownloadStatus,
-  CloudSubTab,
-  DownloadTab,
-  LocalTransferStatus,
-} from '../types/downloads';
+import type { CloudDownload, CloudSubTab, DownloadTab } from '../types/downloads';
 import classes from './Downloads.module.css';
+
+type CloudFilterStatus = 'all' | 'active' | 'inactive' | 'error';
+type LocalFilterStatus = 'all' | 'transferring' | 'complete' | 'error';
+type StatusFilter = CloudFilterStatus | LocalFilterStatus;
 
 function parseNumericId(id: string): number {
   const numeric = id.replace(/^\D+/, '');
@@ -33,9 +32,7 @@ export function DownloadsPage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [dismissedErrors, setDismissedErrors] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<
-    CloudDownloadStatus | LocalTransferStatus | 'all'
-  >('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [fileListDownload, setFileListDownload] = useState<CloudDownload | null>(null);
 
   const { settings, updateSetting, saveSettings, saving, saved, ready, error } = useSettings();
@@ -100,7 +97,13 @@ export function DownloadsPage() {
     }
 
     if (statusFilter !== 'all') {
-      result = result.filter((d) => d.status === statusFilter);
+      if (statusFilter === 'active') {
+        result = result.filter((d) => d.status === 'downloading');
+      } else if (statusFilter === 'inactive') {
+        result = result.filter((d) => d.status === 'queued' || d.status === 'cached');
+      } else {
+        result = result.filter((d) => d.status === 'error');
+      }
     }
 
     return result;
@@ -126,6 +129,9 @@ export function DownloadsPage() {
   }, [activeTab, searchQuery, statusFilter, transfers]);
 
   const loading = activeTab === 'cloud' ? cloudLoading : localLoading;
+  const visibleItems = activeTab === 'cloud' ? filteredDownloads : filteredTransfers;
+  const hasActiveFilters = searchQuery.trim().length > 0 || statusFilter !== 'all';
+  const isEmpty = !loading && (visibleItems?.length ?? 0) === 0;
 
   // Determine error to show (cloud or local, unless dismissed)
   const activeError = activeTab === 'cloud' ? cloudError : localError;
@@ -145,15 +151,6 @@ export function DownloadsPage() {
         <Text className={classes.mobileTitle} fw={600} size="sm">
           TorBox
         </Text>
-        <TextInput
-          className={classes.mobileSearch}
-          placeholder="Filter by name…"
-          size="xs"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.currentTarget.value)}
-          leftSection={<IconSearch size={14} stroke={2} />}
-          aria-label="Filter downloads by name"
-        />
         <ActionIcon
           variant="subtle"
           size="md"
@@ -195,16 +192,13 @@ export function DownloadsPage() {
         <SegmentedControl
           size="xs"
           value={statusFilter}
-          onChange={(value) =>
-            setStatusFilter(value as CloudDownloadStatus | LocalTransferStatus | 'all')
-          }
+          onChange={(value) => setStatusFilter(value as StatusFilter)}
           data={
             activeTab === 'cloud'
               ? [
                   { value: 'all', label: 'All' },
-                  { value: 'downloading', label: 'Downloading' },
-                  { value: 'queued', label: 'Queued' },
-                  { value: 'cached', label: 'Cached' },
+                  { value: 'active', label: 'Active' },
+                  { value: 'inactive', label: 'Inactive' },
                   { value: 'error', label: 'Error' },
                 ]
               : [
@@ -223,45 +217,57 @@ export function DownloadsPage() {
         <ErrorBanner
           message={activeError!}
           onDismiss={() => setDismissedErrors((prev) => new Set(prev).add(errorKey))}
+          onRetry={handleRefresh}
         />
       )}
 
-      {/* Download list */}
-      <DownloadList
-        downloads={filteredDownloads}
-        transfers={filteredTransfers}
-        loading={loading}
-        onPause={pauseDownload}
-        onResume={resumeDownload}
-        onRemove={activeTab === 'cloud' ? removeDownload : removeTransfer}
-        onRetry={activeTab === 'cloud' ? retryDownload : retryTransfer}
-        onDownloadToDevice={activeTab === 'cloud' ? handleDownloadToDevice : undefined}
-        emptyTitle={
-          activeTab === 'cloud'
-            ? settingsReady
-              ? 'No cloud downloads yet'
-              : 'API key required'
-            : 'No local transfers yet'
-        }
-        emptyDescription={
-          activeTab === 'cloud'
-            ? settingsReady
-              ? 'Add a magnet link or torrent file to start downloading on TorBox.'
-              : 'Set your TorBox API key in Settings to get started.'
-            : 'Download cached files from TorBox to your device.'
-        }
-        onAdd={
-          activeTab === 'cloud' && !settingsReady
-            ? () => setSettingsOpen(true)
-            : () => setAddModalOpen(true)
-        }
-        onOpenFiles={(id) => {
-          const download = downloads.find((d) => d.id === id);
-          if (download && download.files.length > 0) {
-            setFileListDownload(download);
+      {/* Download list / empty state */}
+      {isEmpty ? (
+        <EmptyState
+          variant={hasActiveFilters ? 'no-matches' : 'onboarding'}
+          title={
+            activeTab === 'cloud'
+              ? settingsReady
+                ? 'No cloud downloads yet'
+                : 'API key required'
+              : 'No local transfers yet'
           }
-        }}
-      />
+          description={
+            activeTab === 'cloud'
+              ? settingsReady
+                ? 'Add a magnet link or torrent file to start downloading on TorBox.'
+                : 'Set your TorBox API key in Settings to get started.'
+              : 'Download cached files from TorBox to your device.'
+          }
+          actionLabel={activeTab === 'cloud' && !settingsReady ? 'Open Settings' : 'Add download'}
+          onAction={
+            activeTab === 'cloud' && !settingsReady
+              ? () => setSettingsOpen(true)
+              : () => setAddModalOpen(true)
+          }
+          onClearFilters={() => {
+            setSearchQuery('');
+            setStatusFilter('all');
+          }}
+        />
+      ) : (
+        <DownloadList
+          downloads={filteredDownloads}
+          transfers={filteredTransfers}
+          loading={loading}
+          onPause={pauseDownload}
+          onResume={resumeDownload}
+          onRemove={activeTab === 'cloud' ? removeDownload : removeTransfer}
+          onRetry={activeTab === 'cloud' ? retryDownload : retryTransfer}
+          onDownloadToDevice={activeTab === 'cloud' ? handleDownloadToDevice : undefined}
+          onOpenFiles={(id) => {
+            const download = downloads.find((d) => d.id === id);
+            if (download && download.files.length > 0) {
+              setFileListDownload(download);
+            }
+          }}
+        />
+      )}
 
       {/* Status bar */}
       <StatusBar
@@ -271,18 +277,30 @@ export function DownloadsPage() {
         error={statusCounts.error}
       />
 
+      {/* Mobile Add button bottom bar */}
+      <div className={classes.mobileAddBar}>
+        <Button
+          className={classes.mobileAddButton}
+          leftSection={<IconPlus size={16} stroke={2} />}
+          onClick={() => setAddModalOpen(true)}
+          variant="filled"
+          size="compact-sm"
+        >
+          Add
+        </Button>
+      </div>
+
       {/* Add download modal */}
       <AddDownloadModal
         opened={addModalOpen}
         onClose={() => setAddModalOpen(false)}
-        onAdd={(name, type, url) => {
+        onAdd={async (name, type, url) => {
           if (!settings.api_key) {
             setAddModalOpen(false);
             setSettingsOpen(true);
             return;
           }
-          setAddModalOpen(false);
-          void addDownload(name, type, url);
+          await addDownload(name, type, url);
         }}
       />
 

@@ -21,6 +21,16 @@
   display: none;
 }
 
+.mobileTitle {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Mobile bottom bar for the Add button */
+.mobileAddBar {
+  display: none;
+}
+
 /* Desktop: the toolbar is the top bar */
 @media (min-width: 600px) {
   .mobileHeader {
@@ -41,20 +51,6 @@
     flex-shrink: 0;
   }
 
-  .mobileTitle {
-    flex-shrink: 0;
-  }
-
-  .mobileSearch {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .mobileSearch input {
-    height: 32px;
-    min-height: 32px;
-  }
-
   .filterBar {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
@@ -63,6 +59,30 @@
 
   .filterBar::-webkit-scrollbar {
     display: none;
+  }
+
+  .mobileAddBar {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 0.5rem 0.75rem;
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+    z-index: 100;
+    justify-content: center;
+  }
+
+  .mobileAddButton {
+    width: 100%;
+    max-width: 360px;
+  }
+
+  .mobileAddButton button {
+    --button-height: 44px;
+    width: 100%;
   }
 
   .page {

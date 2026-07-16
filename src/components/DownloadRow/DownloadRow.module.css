@@ -26,10 +26,6 @@
   outline-offset: -2px;
 }
 
-.row:hover .actions {
-  opacity: 1;
-}
-
 /* Status indicator dot */
 .dot {
   flex-shrink: 0;
@@ -85,7 +81,6 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  text-wrap: pretty;
 }
 
 /* Progress bar wrapper */
@@ -94,46 +89,29 @@
   width: 120px;
 }
 
-.progressFill {
+.progressTrack {
   width: 100%;
   height: 4px;
-  -webkit-appearance: none;
-  appearance: none;
-  border: none;
+  background-color: var(--border);
   border-radius: 2px;
   overflow: hidden;
 }
 
-.progressFill::-webkit-progress-bar {
-  background-color: var(--border);
-  border-radius: 2px;
-}
-
-.progressFill::-webkit-progress-value {
+.progressFill {
+  width: 100%;
+  height: 100%;
   background-color: var(--primary);
   border-radius: 2px;
-  transition: width 300ms ease-out;
+  transform-origin: left;
+  transition: transform 300ms ease-out;
+  will-change: transform;
 }
 
-.progressFill::-moz-progress-bar {
-  background-color: var(--primary);
-  border-radius: 2px;
-  transition: width 300ms ease-out;
-}
-
-.progressFillComplete::-webkit-progress-value {
+.progressFillComplete {
   background-color: var(--success);
 }
 
-.progressFillComplete::-moz-progress-bar {
-  background-color: var(--success);
-}
-
-.progressFillError::-webkit-progress-value {
-  background-color: var(--danger);
-}
-
-.progressFillError::-moz-progress-bar {
+.progressFillError {
   background-color: var(--danger);
 }
 
@@ -185,7 +163,7 @@
   font-size: 0.75rem;
 }
 
-/* Action buttons (visible on hover, always visible on touch) */
+/* Action buttons (always visible but muted, brighten on hover/focus) */
 .actions {
   display: flex;
   align-items: center;
@@ -193,7 +171,7 @@
   gap: 0.25rem;
   flex-shrink: 0;
   min-width: 92px;
-  opacity: 0;
+  opacity: 1;
   transition: opacity 150ms ease-out;
 }
 
@@ -201,13 +179,25 @@
   color: var(--ink-muted);
   min-height: 44px;
   min-width: 44px;
+  opacity: 0.6;
+  transition:
+    opacity 150ms ease-out,
+    color 150ms ease-out;
 }
 
-.actionButton:hover {
+.row:hover .actionButton,
+.actionButton:hover,
+.actionButton:focus-visible {
+  opacity: 1;
+}
+
+.actionButton:hover,
+.actionButton:focus-visible {
   color: var(--ink);
 }
 
-.actionButtonDanger:hover {
+.actionButtonDanger:hover,
+.actionButtonDanger:focus-visible {
   color: var(--danger);
 }
 
@@ -244,7 +234,7 @@
     order: 3;
   }
 
-  .progressFill {
+  .progressTrack {
     height: 6px;
   }
 
@@ -261,6 +251,10 @@
     opacity: 1;
     order: 4;
     min-width: 0;
+  }
+
+  .actionButton {
+    opacity: 1;
   }
 
   .downloadToDevice {

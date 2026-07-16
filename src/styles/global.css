@@ -23,6 +23,7 @@
   --success: oklch(45% 0.14 155deg);
   --warning: oklch(50% 0.14 80deg);
   --danger: oklch(45% 0.18 25deg);
+  --danger-bg: oklch(50% 0.18 25deg / 0.12);
 
   /* Typography */
   --font-body:
@@ -30,6 +31,12 @@
     'Apple Color Emoji', 'Segoe UI Emoji';
   --font-mono:
     ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+
+  /* Type scale — intentional, distinct steps */
+  --caption: 0.75rem; /* 12px */
+  --font-size-sm: 0.8125rem; /* 13px — legacy support for components outside scope */
+  --body: 0.875rem; /* 14px */
+  --heading: 1.125rem; /* 18px */
 
   /* Radii */
   --radius-sm: 4px;
@@ -56,6 +63,7 @@
   --success: oklch(50% 0.14 155deg);
   --warning: oklch(55% 0.14 80deg);
   --danger: oklch(50% 0.18 25deg);
+  --danger-bg: oklch(55% 0.18 25deg / 0.16);
 }
 
 /* ── Base ─────────────────────────────────────────────────────── */
