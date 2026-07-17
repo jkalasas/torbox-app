@@ -11,6 +11,7 @@ import {
   TextInput,
 } from '@mantine/core';
 import { IconCheck, IconEye, IconEyeOff, IconFolder, IconKey } from '@tabler/icons-react';
+import { getVersion } from '@tauri-apps/api/app';
 import { useEffect, useRef, useState } from 'react';
 import type { ColorMode, DownloadSettings } from '../../types/downloads';
 import classes from './SettingsModal.module.css';
@@ -39,6 +40,7 @@ export function SettingsModal({
   const [localSettings, setLocalSettings] = useState<DownloadSettings>(settings);
   const [initialSettings, setInitialSettings] = useState<DownloadSettings>(settings);
   const [apiKeyVisible, setApiKeyVisible] = useState(false);
+  const [appVersion, setAppVersion] = useState<string>('');
   const wasOpenRef = useRef(false);
 
   useEffect(() => {
@@ -50,6 +52,12 @@ export function SettingsModal({
     }
     wasOpenRef.current = isOpen;
   }, [opened, ready, settings]);
+
+  useEffect(() => {
+    void getVersion()
+      .then(setAppVersion)
+      .catch(() => {});
+  }, []);
 
   const update = <K extends keyof DownloadSettings>(key: K, value: DownloadSettings[K]) => {
     setLocalSettings((prev) => ({ ...prev, [key]: value }));
@@ -204,6 +212,24 @@ export function SettingsModal({
           onChange={(e) => update('open_folder_on_complete', e.currentTarget.checked)}
           mb="md"
         />
+
+        <Divider mb="md" />
+
+        <Text fw={600} size="sm" mb={4}>
+          About
+        </Text>
+        <Text size="xs" c="dimmed" mb={2}>
+          Version {appVersion || '—'}
+        </Text>
+        <Button
+          variant="subtle"
+          size="compact-sm"
+          p={0}
+          onClick={() => window.open('https://github.com/jkalasas/torbox-app/releases', '_blank')}
+          style={{ height: 'auto' }}
+        >
+          View releases on GitHub
+        </Button>
 
         {error && (
           <Text size="xs" c="red" mb="md">

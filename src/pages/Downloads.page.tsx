@@ -14,9 +14,12 @@ import { MobileFilters } from '../components/MobileFilters/MobileFilters';
 import { SettingsModal } from '../components/SettingsModal/SettingsModal';
 import { SideNav, type StatusFilter } from '../components/SideNav/SideNav';
 import { SpeedBadge } from '../components/SpeedBadge/SpeedBadge';
+import { UpdateBanner } from '../components/UpdateBanner/UpdateBanner';
+import { UpdateModal } from '../components/UpdateModal/UpdateModal';
 import { useDownloads } from '../hooks/useDownloads';
 import { useLocalTransfers } from '../hooks/useLocalTransfers';
 import { useSettings } from '../hooks/useSettings';
+import { useUpdater } from '../hooks/useUpdater';
 import type { CloudDownload, CloudSubTab, DownloadTab } from '../types/downloads';
 import classes from './Downloads.module.css';
 
@@ -65,8 +68,17 @@ export function DownloadsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [fileListDownload, setFileListDownload] = useState<CloudDownload | null>(null);
+  const [updateModalOpen, setUpdateModalOpen] = useState(false);
 
   const { settings, saveSettings, saving, saved, ready, error } = useSettings();
+  const {
+    availableUpdate,
+    installing: updateInstalling,
+    progress: updateProgress,
+    error: updateError,
+    installUpdate,
+    relaunchApp,
+  } = useUpdater();
   const isDesktop = useMediaQuery('(min-width: 900px)', true);
   const isMobile = useMediaQuery('(max-width: 599px)', false);
 
@@ -278,6 +290,13 @@ export function DownloadsPage() {
           />
         )}
 
+        {availableUpdate && (
+          <UpdateBanner
+            version={availableUpdate.version}
+            onInstall={() => setUpdateModalOpen(true)}
+          />
+        )}
+
         {isEmpty ? (
           <EmptyState
             variant={hasActiveFilters ? 'no-matches' : 'onboarding'}
@@ -377,6 +396,19 @@ export function DownloadsPage() {
         ready={ready}
         error={error}
         onSave={saveSettings}
+      />
+
+      <UpdateModal
+        opened={updateModalOpen}
+        onClose={() => setUpdateModalOpen(false)}
+        version={availableUpdate?.version ?? null}
+        notes={availableUpdate?.body ?? null}
+        progress={updateProgress}
+        installing={updateInstalling}
+        onInstall={() => void installUpdate()}
+        onRelaunch={() => void relaunchApp()}
+        error={updateError}
+        done={updateProgress === 100 && !updateInstalling}
       />
     </div>
   );

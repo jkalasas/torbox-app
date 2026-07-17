@@ -1,0 +1,26 @@
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5rem 0.75rem;
+  background-color: var(--surface-elevated);
+  border-left: 3px solid var(--primary);
+  border-bottom: 1px solid var(--border);
+}
+
+.message {
+  flex: 1;
+  font-size: 0.8125rem;
+  color: var(--ink);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.button {
+  min-height: 44px;
+}

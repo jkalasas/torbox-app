@@ -31,6 +31,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -40,6 +41,14 @@
     ],
     "android": {
       "debugApplicationIdSuffix": ".debug"
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDJEOEVDMTQzNUM0MTdCQkUKUldTK2UwRmNROEdPTGEycHdmaWtaVDBwS3UycE1vNFowcWdCUm5NMFlEZXRIVGlPUTV5N1V4c0IK",
+      "endpoints": [
+        "https://github.com/jkalasas/torbox-app/releases/latest/download/latest.json"
+      ]
     }
   }
 }
