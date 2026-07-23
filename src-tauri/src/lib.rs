@@ -5,25 +5,74 @@ mod download_manager;
 mod models;
 mod persistence;
 mod queue_manager;
+mod saf;
 
 use std::sync::Arc;
 use tauri::Manager;
 
+use models::DownloadSettings;
 use persistence::Persistence;
+
+#[cfg(mobile)]
+fn resolve_settings(app: &tauri::App, persistence: &Persistence) -> DownloadSettings {
+    let mut settings = persistence.get_settings().unwrap_or_default();
+
+    // Always ensure a writable staging/app directory exists.
+    let app_download = app
+        .path()
+        .download_dir()
+        .ok()
+        .map(|dir| dir.join("TorBox"));
+
+    if let Some(ref mobile_dir) = app_download {
+        std::fs::create_dir_all(mobile_dir).ok();
+    }
+
+    // Keep user-selected SAF tree URIs. Otherwise force app-scoped storage
+    // (dirs-next is meaningless on mobile; public paths need special access).
+    if saf::is_content_uri(&settings.download_dir) {
+        return settings;
+    }
+
+    if let Some(mobile_dir) = app_download {
+        let mobile_dir = mobile_dir.to_string_lossy().to_string();
+        let keep = !settings.download_dir.is_empty()
+            && saf::path_is_under(&settings.download_dir, std::path::Path::new(&mobile_dir));
+        if !keep && settings.download_dir != mobile_dir {
+            settings.download_dir = mobile_dir;
+            persistence.save_settings(&settings).ok();
+        }
+    }
+
+    settings
+}
+
+#[cfg(not(mobile))]
+fn resolve_settings(_app: &tauri::App, persistence: &Persistence) -> DownloadSettings {
+    persistence.get_settings().unwrap_or_default()
+}
+
+fn install_crypto_provider() {
+    // reqwest 0.13 (pulled by Tauri / plugins) can build with rustls-no-provider and
+    // panics on Android unless a process-wide CryptoProvider is installed first.
+    let _ = rustls::crypto::ring::default_provider().install_default();
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let mut builder = tauri::Builder::default()
+    install_crypto_provider();
+
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_sql::Builder::default().build())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_process::init());
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_os::init())
+        .plugin(saf::init());
 
     #[cfg(desktop)]
-    {
-        builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
-    }
+    let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
 
     builder
         .setup(|app| {
@@ -69,9 +118,7 @@ pub fn run() {
                 }
             }
 
-            // Load settings to get initial concurrency/bandwidth
-            let settings = persistence.get_settings().unwrap_or_default();
-
+            let settings = resolve_settings(app, &persistence);
             let manager = crate::download_manager::DownloadManager::new(persistence, settings);
 
             // Spawn queue processor on the Tauri-managed runtime
@@ -93,6 +140,8 @@ pub fn run() {
             commands::list_downloads,
             commands::get_settings,
             commands::update_settings,
+            saf::pick_download_folder,
+            saf::get_folder_display_name,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

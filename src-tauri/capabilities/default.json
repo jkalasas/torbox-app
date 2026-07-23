@@ -20,8 +20,8 @@
     "sql:default",
     "dialog:default",
     "local-downloads",
-    "updater:default",
     "process:default",
+    "os:default",
     {
       "identifier": "http:default",
       "allow": [

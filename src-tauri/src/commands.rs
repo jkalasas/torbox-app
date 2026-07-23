@@ -62,8 +62,46 @@ pub async fn get_settings(
 
 #[tauri::command]
 pub async fn update_settings(
-    settings: DownloadSettings,
+    mut settings: DownloadSettings,
     manager: State<'_, Arc<DownloadManager>>,
+    app: tauri::AppHandle,
 ) -> Result<(), String> {
+    normalize_download_dir(&app, &mut settings)?;
     manager.save_settings(&settings).await
+}
+
+fn normalize_download_dir(
+    app: &tauri::AppHandle,
+    settings: &mut DownloadSettings,
+) -> Result<(), String> {
+    #[cfg(mobile)]
+    {
+        use tauri::Manager;
+
+        if crate::saf::is_content_uri(&settings.download_dir) {
+            return Ok(());
+        }
+
+        let mobile_dir = app
+            .path()
+            .download_dir()
+            .map_err(|e| e.to_string())?
+            .join("TorBox");
+        std::fs::create_dir_all(&mobile_dir).map_err(|e| e.to_string())?;
+        let mobile_dir = mobile_dir.to_string_lossy().to_string();
+
+        let keep = !settings.download_dir.is_empty()
+            && crate::saf::path_is_under(&settings.download_dir, std::path::Path::new(&mobile_dir));
+        if !keep {
+            settings.download_dir = mobile_dir;
+        }
+    }
+
+    #[cfg(not(mobile))]
+    {
+        let _ = app;
+        let _ = settings;
+    }
+
+    Ok(())
 }

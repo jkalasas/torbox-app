@@ -12,9 +12,12 @@ import {
 } from '@mantine/core';
 import { IconCheck, IconEye, IconEyeOff, IconFolder, IconKey } from '@tabler/icons-react';
 import { getVersion } from '@tauri-apps/api/app';
+import { invoke } from '@tauri-apps/api/core';
 import { useEffect, useRef, useState } from 'react';
 import type { ColorMode, DownloadSettings } from '../../types/downloads';
 import classes from './SettingsModal.module.css';
+
+type AppPlatform = 'linux' | 'macos' | 'windows' | 'android' | 'ios' | 'unknown';
 
 export interface SettingsModalProps {
   opened: boolean;
@@ -25,6 +28,10 @@ export interface SettingsModalProps {
   ready: boolean;
   error: string | null;
   onSave: (settings: DownloadSettings) => Promise<DownloadSettings | void>;
+}
+
+function isContentUri(value: string): boolean {
+  return value.startsWith('content://');
 }
 
 export function SettingsModal({
@@ -41,7 +48,18 @@ export function SettingsModal({
   const [initialSettings, setInitialSettings] = useState<DownloadSettings>(settings);
   const [apiKeyVisible, setApiKeyVisible] = useState(false);
   const [appVersion, setAppVersion] = useState<string>('');
+  const [platform, setPlatform] = useState<AppPlatform>('unknown');
+  const [folderLabel, setFolderLabel] = useState<string>('');
+  const [browseError, setBrowseError] = useState<string | null>(null);
+  const [browsing, setBrowsing] = useState(false);
   const wasOpenRef = useRef(false);
+
+  useEffect(() => {
+    void import('@tauri-apps/plugin-os')
+      .then(({ platform: getPlatform }) => getPlatform())
+      .then((value) => setPlatform(value as AppPlatform))
+      .catch(() => setPlatform('unknown'));
+  }, []);
 
   useEffect(() => {
     const isOpen = opened && ready;
@@ -49,6 +67,7 @@ export function SettingsModal({
       setLocalSettings(settings);
       setInitialSettings(settings);
       setApiKeyVisible(false);
+      setBrowseError(null);
     }
     wasOpenRef.current = isOpen;
   }, [opened, ready, settings]);
@@ -59,14 +78,58 @@ export function SettingsModal({
       .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const resolveLabel = async () => {
+      const dir = localSettings.download_dir;
+      if (!dir) {
+        setFolderLabel('');
+        return;
+      }
+      if (!isContentUri(dir)) {
+        setFolderLabel(dir);
+        return;
+      }
+      try {
+        const name = await invoke<string>('get_folder_display_name', { uri: dir });
+        if (!cancelled) {
+          setFolderLabel(name || dir);
+        }
+      } catch {
+        if (!cancelled) {
+          setFolderLabel(dir);
+        }
+      }
+    };
+
+    void resolveLabel();
+    return () => {
+      cancelled = true;
+    };
+  }, [localSettings.download_dir]);
+
   const update = <K extends keyof DownloadSettings>(key: K, value: DownloadSettings[K]) => {
     setLocalSettings((prev) => ({ ...prev, [key]: value }));
   };
 
   const hasChanges = JSON.stringify(localSettings) !== JSON.stringify(initialSettings);
+  const isAndroid = platform === 'android';
+  const isIOS = platform === 'ios';
+  const isMobile = isAndroid || isIOS;
+  const isDesktop = platform === 'linux' || platform === 'macos' || platform === 'windows';
 
   const handleBrowse = async () => {
+    setBrowseError(null);
+    setBrowsing(true);
     try {
+      if (isAndroid) {
+        const selected = await invoke<{ uri: string; name: string }>('pick_download_folder');
+        update('download_dir', selected.uri);
+        setFolderLabel(selected.name);
+        return;
+      }
+
       const { open } = await import('@tauri-apps/plugin-dialog');
       const selected = await open({
         directory: true,
@@ -75,10 +138,39 @@ export function SettingsModal({
       });
       if (selected && typeof selected === 'string') {
         update('download_dir', selected);
+        setFolderLabel(selected);
       }
-    } catch {
-      // Dialog plugin not available (mobile/web fallback)
+    } catch (err) {
+      const raw =
+        typeof err === 'string'
+          ? err
+          : err && typeof err === 'object' && 'message' in err
+            ? String((err as { message: unknown }).message)
+            : String(err);
+      if (raw.toLowerCase().includes('cancel')) {
+        return;
+      }
+      if (isAndroid) {
+        const cleaned = raw
+          .replace(/^Error:\s*/i, '')
+          .replace(/^.*pick_download_folder[:\s]*/i, '')
+          .trim();
+        setBrowseError(
+          cleaned ||
+            'Could not use that folder. Pick Downloads or a folder you created — Android blocks storage root.'
+        );
+      } else {
+        setBrowseError('Could not open the folder picker.');
+      }
+    } finally {
+      setBrowsing(false);
     }
+  };
+
+  const handleUseAppStorage = () => {
+    setBrowseError(null);
+    update('download_dir', '');
+    setFolderLabel('App storage (default)');
   };
 
   const handleSave = async () => {
@@ -91,6 +183,16 @@ export function SettingsModal({
       // Parent exposes the error; keep local draft editable.
     }
   };
+
+  const directoryDescription = isAndroid
+    ? 'Choose Downloads or a subfolder you created. Android will reject storage root (“Can’t use this folder”). Files are copied there when a transfer finishes.'
+    : isIOS
+      ? 'Files are saved in this app’s Documents storage on iOS.'
+      : 'Where files are saved on your device';
+
+  const directoryValue = isAndroid
+    ? folderLabel || (localSettings.download_dir ? 'Selected folder' : 'App storage (default)')
+    : localSettings.download_dir;
 
   return (
     <Modal opened={opened} onClose={onClose} title="Settings" size={480} centered>
@@ -157,25 +259,41 @@ export function SettingsModal({
           Download directory
         </Text>
         <Text size="xs" c="dimmed" mb={6}>
-          Where files are saved on your device
+          {directoryDescription}
         </Text>
-        <Group gap="xs" mb="md" wrap="nowrap">
+        <Group gap="xs" mb={isAndroid ? 'xs' : 'md'} wrap="nowrap" align="flex-start">
           <TextInput
             style={{ flex: 1 }}
-            value={localSettings.download_dir}
-            onChange={(e) => update('download_dir', e.currentTarget.value)}
-            placeholder="~/Downloads/TorBox"
+            value={directoryValue}
+            onChange={isDesktop ? (e) => update('download_dir', e.currentTarget.value) : undefined}
+            readOnly={isMobile || platform === 'unknown'}
+            placeholder={isAndroid ? 'App storage (default)' : '~/Downloads/TorBox'}
             aria-label="Download directory"
           />
-          <Button
-            variant="default"
-            size="compact-sm"
-            onClick={handleBrowse}
-            leftSection={<IconFolder size={14} />}
-          >
-            Browse
-          </Button>
+          {!isIOS && (
+            <Button
+              variant="default"
+              size="compact-sm"
+              onClick={() => void handleBrowse()}
+              loading={browsing}
+              leftSection={<IconFolder size={14} />}
+            >
+              {isAndroid ? 'Choose' : 'Browse'}
+            </Button>
+          )}
         </Group>
+        {isAndroid && (
+          <Group gap="xs" mb="md">
+            <Button variant="subtle" size="compact-xs" onClick={handleUseAppStorage}>
+              Use app storage
+            </Button>
+          </Group>
+        )}
+        {browseError && (
+          <Text size="xs" c="red" mb="md">
+            {browseError}
+          </Text>
+        )}
 
         <NumberInput
           label="Max concurrent downloads"
@@ -206,12 +324,15 @@ export function SettingsModal({
           onChange={(e) => update('notify_on_complete', e.currentTarget.checked)}
           mb="xs"
         />
-        <Checkbox
-          label="Open destination folder"
-          checked={localSettings.open_folder_on_complete}
-          onChange={(e) => update('open_folder_on_complete', e.currentTarget.checked)}
-          mb="md"
-        />
+        {isDesktop && (
+          <Checkbox
+            label="Open destination folder"
+            checked={localSettings.open_folder_on_complete}
+            onChange={(e) => update('open_folder_on_complete', e.currentTarget.checked)}
+            mb="md"
+          />
+        )}
+        {isMobile && <div style={{ marginBottom: 'var(--mantine-spacing-md)' }} />}
 
         <Divider mb="md" />
 

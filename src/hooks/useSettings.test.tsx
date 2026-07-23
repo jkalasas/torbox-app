@@ -77,19 +77,22 @@ describe('useSettings', () => {
 
   it('persists trimmed settings payload to the backend', async () => {
     const mockInvoke = invoke as unknown as ReturnType<typeof vi.fn>;
-    mockInvoke.mockImplementation(async (cmd: string) => {
+    let stored = {
+      api_key: '',
+      download_dir: '',
+      max_concurrent: 3,
+      bandwidth_limit: 0,
+      notify_on_complete: true,
+      open_folder_on_complete: true,
+      color_mode: 'dark' as const,
+    };
+
+    mockInvoke.mockImplementation(async (cmd: string, args?: { settings?: typeof stored }) => {
       if (cmd === 'get_settings') {
-        return {
-          api_key: '',
-          download_dir: '',
-          max_concurrent: 3,
-          bandwidth_limit: 0,
-          notify_on_complete: true,
-          open_folder_on_complete: true,
-          color_mode: 'dark',
-        };
+        return stored;
       }
       if (cmd === 'update_settings') {
+        stored = { ...stored, ...(args?.settings ?? {}) };
         return undefined;
       }
       throw new Error(`unexpected command: ${cmd}`);

@@ -93,11 +93,14 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       await invoke('update_settings', {
         settings: toSave as unknown as Record<string, unknown>,
       });
-      setSettings(toSave);
+      // Backend may normalize download_dir (empty → app storage on mobile).
+      const persisted = await invoke<DownloadSettings>('get_settings', {});
+      const normalized = normalizeSettings(persisted);
+      setSettings(normalized);
       setSaving(false);
       setSaved(true);
       savedTimerRef.current = window.setTimeout(() => setSaved(false), 2000);
-      return toSave;
+      return normalized;
     } catch (e) {
       setSaving(false);
       setError(String(e));

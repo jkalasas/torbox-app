@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter};
+use tokio::io::AsyncWriteExt;
 use tokio::sync::{watch, Mutex, RwLock};
 
 use crate::bandwidth_limiter::BandwidthLimiter;
@@ -24,8 +25,17 @@ impl DownloadManager {
     pub fn new(persistence: Arc<Persistence>, initial_settings: DownloadSettings) -> Arc<Self> {
         let limiter = Arc::new(BandwidthLimiter::new(initial_settings.bandwidth_limit));
         let queue = Arc::new(QueueManager::new(initial_settings.max_concurrent));
+        // No total request timeout: large files can take longer than any fixed budget.
+        // connect_timeout still bounds hung handshakes; stream errors are retried with resume.
         let client = reqwest::Client::builder()
-            .timeout(Duration::from_secs(300))
+            .connect_timeout(Duration::from_secs(30))
+            .pool_max_idle_per_host(2)
+            .pool_idle_timeout(Duration::from_secs(90))
+            .tcp_keepalive(Duration::from_secs(30))
+            .tcp_nodelay(true)
+            .http1_only()
+            .redirect(reqwest::redirect::Policy::limited(10))
+            .user_agent(concat!("TorBox/", env!("CARGO_PKG_VERSION")))
             .build()
             .expect("Failed to build HTTP client");
         let chunked = Arc::new(ChunkedDownloader::new(
@@ -132,22 +142,6 @@ impl DownloadManager {
         }
     }
 
-    async fn prepare_dest_path(
-        &self,
-        base_dir: &str,
-        name: &str,
-    ) -> Result<(std::path::PathBuf, std::path::PathBuf), String> {
-        let dest_dir = std::path::Path::new(base_dir);
-        tokio::fs::create_dir_all(&dest_dir)
-            .await
-            .map_err(|e| format!("Cannot create download directory: {}", e))?;
-        let base_dir = tokio::fs::canonicalize(dest_dir)
-            .await
-            .map_err(|e| format!("Cannot resolve download directory: {}", e))?;
-        let dest_path = normalize_within_base(&base_dir, name)?;
-        Ok((base_dir, dest_path))
-    }
-
     async fn run_download(
         self: Arc<Self>,
         app: AppHandle,
@@ -250,12 +244,15 @@ impl DownloadManager {
                 }
             };
 
-        // Create destination directory and validate final path
-        let dest_path = match self
-            .prepare_dest_path(&download.destination_path, &download.name)
-            .await
-        {
-            Ok((_, dest)) => dest,
+        // Open the destination. SAF content:// trees get a real FD so the file appears
+        // in the user-selected folder immediately and grows as bytes arrive.
+        let open_dest = open_destination(&app, &download.destination_path, &download.name).await;
+        let OpenDest {
+            file: mut dest_file,
+            display_path: final_path_hint,
+            saf_publish,
+        } = match open_dest {
+            Ok(dest) => dest,
             Err(e) => {
                 self.persistence
                     .update_download_status(&download_id, &DownloadStatus::Error, Some(&e))
@@ -273,34 +270,40 @@ impl DownloadManager {
                 return Ok(());
             }
         };
-        let dest_path = dest_path.to_string_lossy().to_string();
 
         // Download via chunked downloader
         let app_for_progress = app.clone();
         let download_id_for_progress = download_id.clone();
         let size_bytes = download.size_bytes;
-        let progress_state = std::sync::Mutex::new((std::time::Instant::now(), 0.0f64));
+        // (sample_start, progress_at_sample_start, last_reported_speed)
+        let progress_state =
+            std::sync::Mutex::new((std::time::Instant::now(), 0.0f64, None::<u64>));
         let result = self
             .chunked
             .download(
                 &download_id,
                 &download_url,
-                &dest_path,
+                &mut dest_file,
                 download.size_bytes,
                 pause_rx,
                 move |progress| {
                     let (speed_bytes_per_sec, eta_seconds) = {
                         let mut state = progress_state.lock().unwrap_or_else(|e| e.into_inner());
-                        let (last_instant, last_progress) = *state;
+                        let (sample_start, start_progress, last_speed) = *state;
                         let now = std::time::Instant::now();
-                        let dt = now.duration_since(last_instant).as_secs_f64();
-                        let speed = if dt > 0.0 && size_bytes > 0 && progress > last_progress {
+                        let dt = now.duration_since(sample_start).as_secs_f64();
+
+                        // Require a real sample window so tiny packet intervals don't invent GB/s.
+                        let speed = if dt >= 0.5 && size_bytes > 0 && progress > start_progress {
                             let bytes_delta =
-                                ((progress - last_progress) * size_bytes as f64).max(0.0);
-                            Some((bytes_delta / dt).round() as u64)
+                                ((progress - start_progress) * size_bytes as f64).max(0.0);
+                            let measured = (bytes_delta / dt).round() as u64;
+                            *state = (now, progress, Some(measured));
+                            Some(measured)
                         } else {
-                            None
+                            last_speed
                         };
+
                         let eta = match speed {
                             Some(s) if s > 0 && progress < 1.0 => {
                                 let remaining =
@@ -309,7 +312,6 @@ impl DownloadManager {
                             }
                             _ => None,
                         };
-                        *state = (now, progress);
                         (speed, eta)
                     };
 
@@ -328,8 +330,36 @@ impl DownloadManager {
             )
             .await;
 
+        // Ensure data hits disk / SAF provider before we report completion.
+        let _ = dest_file.flush().await;
+        drop(dest_file);
+
         match result {
             Ok(()) => {
+                let final_path = if let Some(publish) = saf_publish {
+                    match crate::saf::publish_to_saf(
+                        &app,
+                        &publish.tree_uri,
+                        &publish.local_path,
+                        &publish.file_name,
+                    )
+                    .await
+                    {
+                        Ok(uri) => {
+                            let _ = tokio::fs::remove_file(&publish.local_path).await;
+                            uri
+                        }
+                        Err(e) => {
+                            log::warn!(
+                                "Failed to publish {} to SAF folder: {e}",
+                                publish.file_name
+                            );
+                            publish.local_path
+                        }
+                    }
+                } else {
+                    final_path_hint
+                };
                 self.persistence
                     .update_download_status(&download_id, &DownloadStatus::Complete, None)
                     .ok();
@@ -337,7 +367,7 @@ impl DownloadManager {
                     "download-complete",
                     DownloadCompleteEvent {
                         download_id: download_id.clone(),
-                        path: dest_path,
+                        path: final_path,
                     },
                 )
                 .ok();
@@ -538,6 +568,90 @@ async fn request_torbox_download_link(
         .as_str()
         .map(|s| s.to_string())
         .ok_or_else(|| "No download URL in response".to_string())
+}
+
+struct SafPublish {
+    tree_uri: String,
+    local_path: String,
+    file_name: String,
+}
+
+struct OpenDest {
+    file: tokio::fs::File,
+    display_path: String,
+    /// When set, bytes were staged locally and must be copied into the SAF tree on success.
+    saf_publish: Option<SafPublish>,
+}
+
+async fn open_destination(
+    app: &AppHandle,
+    destination_dir: &str,
+    name: &str,
+) -> Result<OpenDest, String> {
+    if crate::saf::is_content_uri(destination_dir) {
+        match crate::saf::open_writable_file(app, destination_dir, name).await {
+            Ok(opened) => {
+                let file = crate::saf::tokio_file_from_fd(opened.fd)?;
+                return Ok(OpenDest {
+                    file,
+                    display_path: opened.uri,
+                    saf_publish: None,
+                });
+            }
+            Err(e) => {
+                log::warn!(
+                    "Direct SAF write unavailable ({e}); falling back to staging directory"
+                );
+            }
+        }
+
+        let write_dir = crate::saf::staging_dir(app)?;
+        let dest_path = open_path_destination(&write_dir.to_string_lossy(), name).await?;
+        let local_path = dest_path.display_path.clone();
+        return Ok(OpenDest {
+            file: dest_path.file,
+            display_path: local_path.clone(),
+            saf_publish: Some(SafPublish {
+                tree_uri: destination_dir.to_string(),
+                local_path,
+                file_name: name.to_string(),
+            }),
+        });
+    }
+
+    open_path_destination(destination_dir, name).await
+}
+
+async fn open_path_destination(base_dir: &str, name: &str) -> Result<OpenDest, String> {
+    let dest_dir = std::path::Path::new(base_dir);
+    tokio::fs::create_dir_all(&dest_dir)
+        .await
+        .map_err(|e| format!("Cannot create download directory: {}", e))?;
+    let base_dir = tokio::fs::canonicalize(dest_dir)
+        .await
+        .map_err(|e| format!("Cannot resolve download directory: {}", e))?;
+    let dest_path = normalize_within_base(&base_dir, name)?;
+
+    if let Some(parent) = dest_path.parent() {
+        tokio::fs::create_dir_all(parent)
+            .await
+            .map_err(|e| format!("Cannot create directory: {}", e))?;
+    }
+
+    let file = tokio::fs::OpenOptions::new()
+        .create(true)
+        .write(true)
+        .read(true)
+        .truncate(false)
+        .open(&dest_path)
+        .await
+        .map_err(|e| format!("Cannot open {}: {}", dest_path.display(), e))?;
+
+    Ok(OpenDest {
+        file,
+        display_path: dest_path.to_string_lossy().into_owned(),
+        saf_publish: None,
+    })
 }
 
 fn normalize_within_base(base: &std::path::Path, name: &str) -> Result<std::path::PathBuf, String> {

@@ -10,4 +10,6 @@ commands.allow = [
     "list_downloads",
     "get_settings",
     "update_settings",
+    "pick_download_folder",
+    "get_folder_display_name",
 ]
