@@ -17,7 +17,7 @@ export interface FileListModalProps {
   /** Numeric ID of the parent download (without prefix) */
   downloadId: number;
   /** Called when the user chooses to download a specific file to the device */
-  onDownloadFile?: (fileId: number, fileName: string, fileSize: number) => void;
+  onDownloadFile?: (file: FileInfo) => void;
 }
 
 export function FileListModal({
@@ -49,11 +49,7 @@ export function FileListModal({
               apiKey={apiKey}
               downloadType={downloadType}
               downloadId={downloadId}
-              onDownload={
-                onDownloadFile
-                  ? () => onDownloadFile(file.id, file.name, file.sizeBytes)
-                  : undefined
-              }
+              onDownload={onDownloadFile ? () => onDownloadFile(file) : undefined}
             />
           ))}
         </div>

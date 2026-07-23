@@ -84,9 +84,20 @@ impl DownloadManager {
         let settings = self.settings.read().await;
         let id = uuid::Uuid::new_v4().to_string();
 
+        let is_zip_archive = args
+            .file_ids
+            .as_ref()
+            .map(|ids| ids.is_empty())
+            .unwrap_or(true);
+        let name = if is_zip_archive {
+            ensure_zip_file_name(&args.name)
+        } else {
+            args.name
+        };
+
         let download = LocalDownload {
             id: id.clone(),
-            name: args.name,
+            name,
             status: DownloadStatus::Queued,
             progress: 0.0,
             size_bytes: args.size_bytes,
@@ -654,6 +665,20 @@ async fn open_path_destination(base_dir: &str, name: &str) -> Result<OpenDest, S
     })
 }
 
+fn ensure_zip_file_name(name: &str) -> String {
+    let trimmed = name.trim();
+    let base = if trimmed.is_empty() { "download" } else { trimmed };
+    let file_name = std::path::Path::new(base)
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or(base);
+    if file_name.to_ascii_lowercase().ends_with(".zip") {
+        base.to_string()
+    } else {
+        format!("{}.zip", base)
+    }
+}
+
 fn normalize_within_base(base: &std::path::Path, name: &str) -> Result<std::path::PathBuf, String> {
     let name_path = std::path::Path::new(name);
     if name_path.is_absolute() {
@@ -716,5 +741,13 @@ mod tests {
     fn normalize_within_base_rejects_absolute_name() {
         let base = Path::new("/tmp");
         assert!(normalize_within_base(base, "/etc/passwd").is_err());
+    }
+
+    #[test]
+    fn ensure_zip_file_name_appends_zip_when_missing() {
+        assert_eq!(ensure_zip_file_name("My Torrent"), "My Torrent.zip");
+        assert_eq!(ensure_zip_file_name("My Torrent.zip"), "My Torrent.zip");
+        assert_eq!(ensure_zip_file_name("movie.mkv"), "movie.mkv.zip");
+        assert_eq!(ensure_zip_file_name("  "), "download.zip");
     }
 }

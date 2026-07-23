@@ -21,6 +21,7 @@ import { useLocalTransfers } from '../hooks/useLocalTransfers';
 import { useSettings } from '../hooks/useSettings';
 import { useUpdater } from '../hooks/useUpdater';
 import type { CloudDownload, CloudSubTab, DownloadTab } from '../types/downloads';
+import { resolveFileDownloadName, resolveZipDownloadName } from '../utils/fileName';
 import classes from './Downloads.module.css';
 
 function parseNumericId(id: string): number {
@@ -128,7 +129,12 @@ export function DownloadsPage() {
     (id: string) => {
       const download = downloads.find((d) => d.id === id);
       if (download) {
-        startTransfer(download.id, download.type, download.name, download.sizeBytes);
+        startTransfer(
+          download.id,
+          download.type,
+          resolveZipDownloadName(download.name),
+          download.sizeBytes
+        );
         setActiveTab('local');
       }
     },
@@ -378,9 +384,18 @@ export function DownloadsPage() {
         apiKey={settings.api_key}
         downloadType={fileListDownload?.type ?? 'torrent'}
         downloadId={fileListDownload ? parseNumericId(fileListDownload.id) : 0}
-        onDownloadFile={(fileId, fileName, fileSize) => {
+        onDownloadFile={(file) => {
           if (fileListDownload) {
-            startTransfer(fileListDownload.id, fileListDownload.type, fileName, fileSize, [fileId]);
+            startTransfer(
+              fileListDownload.id,
+              fileListDownload.type,
+              resolveFileDownloadName(file.name, {
+                shortName: file.shortName,
+                mimeType: file.mimeType,
+              }),
+              file.sizeBytes,
+              [file.id]
+            );
             setActiveTab('local');
             setFileListDownload(null);
           }
