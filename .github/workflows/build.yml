@@ -114,12 +114,45 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Setup Android signing
+        env:
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEY_BASE64: ${{ secrets.ANDROID_KEY_BASE64 }}
         run: |
-          cd src-tauri/gen/android
-          echo "keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}" > keystore.properties
-          echo "password=${{ secrets.ANDROID_KEY_PASSWORD }}" >> keystore.properties
-          base64 -d <<< "${{ secrets.ANDROID_KEY_BASE64 }}" > "$RUNNER_TEMP/keystore.jks"
-          echo "storeFile=$RUNNER_TEMP/keystore.jks" >> keystore.properties
+          if [ -z "$ANDROID_KEY_BASE64" ] || [ -z "$ANDROID_KEY_ALIAS" ] || [ -z "$ANDROID_KEY_PASSWORD" ]; then
+            echo "Android signing secrets missing; building unsigned APK."
+            exit 0
+          fi
+
+          KEYSTORE_PATH="$RUNNER_TEMP/keystore.jks"
+          # Avoid bash here-strings — they can corrupt binary base64 payloads.
+          printf '%s' "$ANDROID_KEY_BASE64" | tr -d '\n\r ' | base64 -d > "$KEYSTORE_PATH"
+
+          if [ ! -s "$KEYSTORE_PATH" ]; then
+            echo "Decoded keystore is empty. Check ANDROID_KEY_BASE64."
+            exit 1
+          fi
+
+          STORE_TYPE=""
+          if keytool -list -keystore "$KEYSTORE_PATH" -storepass "$ANDROID_KEY_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null 2>&1; then
+            STORE_TYPE=""
+          elif keytool -list -keystore "$KEYSTORE_PATH" -storetype PKCS12 -storepass "$ANDROID_KEY_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null 2>&1; then
+            STORE_TYPE="PKCS12"
+          else
+            echo "Keystore is unreadable. Re-export with: base64 -w0 upload-keystore.jks"
+            echo "Expected a JKS/PKCS12 keystore, not a PEM cert or private key."
+            file "$KEYSTORE_PATH" || true
+            exit 1
+          fi
+
+          {
+            echo "keyAlias=$ANDROID_KEY_ALIAS"
+            echo "password=$ANDROID_KEY_PASSWORD"
+            echo "storeFile=$KEYSTORE_PATH"
+            if [ -n "$STORE_TYPE" ]; then
+              echo "storeType=$STORE_TYPE"
+            fi
+          } > src-tauri/gen/android/keystore.properties
 
       - uses: tauri-apps/tauri-action@v1
         env:
