@@ -166,4 +166,5 @@ jobs:
           prerelease: false
           generateReleaseNotes: true
           mobile: android
+          tauriScript: .github/scripts/tauri-android.sh
           args: --apk
