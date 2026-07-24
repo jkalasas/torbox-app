@@ -37,3 +37,10 @@ export const Loading: Story = {
     loading: true,
   },
 };
+
+export const WithCheckbox: Story = {
+  args: {
+    checkboxLabel: 'Also delete the file from this device',
+    checkboxChecked: false,
+  },
+};

@@ -8,6 +8,7 @@ import {
   IconTrash,
 } from '@tabler/icons-react';
 import { useState } from 'react';
+import { formatDisplayPath } from '../../utils/fileName';
 import { formatBytes, formatDuration, formatSpeed } from '../../utils/format';
 import { ConfirmDialog } from '../ConfirmDialog/ConfirmDialog';
 import classes from './DownloadRow.module.css';
@@ -27,9 +28,10 @@ export interface DownloadRowProps {
   seeders?: number;
   peers?: number;
   destinationPath?: string;
+  canDeleteLocalFile?: boolean;
   onPause?: (id: string) => void;
   onResume?: (id: string) => void;
-  onRemove?: (id: string) => void;
+  onRemove?: (id: string, options?: { deleteLocalFile?: boolean }) => void;
   onRetry?: (id: string) => void;
   onDownloadToDevice?: (id: string) => void;
   onOpenFiles?: (id: string) => void;
@@ -88,6 +90,7 @@ export function DownloadRow({
   seeders,
   peers,
   destinationPath,
+  canDeleteLocalFile = false,
   onPause,
   onResume,
   onRemove,
@@ -101,6 +104,17 @@ export function DownloadRow({
   const isError = status === 'error';
   const progressFillClass = getProgressFillClass(status);
   const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
+  const [deleteLocalFile, setDeleteLocalFile] = useState(false);
+
+  const openRemoveConfirm = () => {
+    setDeleteLocalFile(false);
+    setRemoveConfirmOpen(true);
+  };
+
+  const closeRemoveConfirm = () => {
+    setRemoveConfirmOpen(false);
+    setDeleteLocalFile(false);
+  };
 
   const downloadedBytes = Math.round((sizeBytes * Math.min(progress, 100)) / 100);
 
@@ -213,7 +227,7 @@ export function DownloadRow({
                 variant="subtle"
                 size="sm"
                 className={`${classes.actionButton} ${classes.actionButtonDanger}`}
-                onClick={() => setRemoveConfirmOpen(true)}
+                onClick={openRemoveConfirm}
                 aria-label={`Remove ${name}`}
               >
                 <IconTrash size={14} stroke={2} />
@@ -259,7 +273,9 @@ export function DownloadRow({
               <span className={classes.metaSeparator} aria-hidden="true">
                 ·
               </span>
-              <span className={classes.metaItem}>{destinationPath}</span>
+              <span className={classes.pathItem} title={destinationPath}>
+                {formatDisplayPath(destinationPath)}
+              </span>
             </>
           )}
         </div>
@@ -284,16 +300,19 @@ export function DownloadRow({
       {onRemove && (
         <ConfirmDialog
           opened={removeConfirmOpen}
-          onClose={() => setRemoveConfirmOpen(false)}
+          onClose={closeRemoveConfirm}
           onConfirm={() => {
-            onRemove(id);
-            setRemoveConfirmOpen(false);
+            onRemove(id, canDeleteLocalFile ? { deleteLocalFile } : undefined);
+            closeRemoveConfirm();
           }}
           title="Remove download"
           description={`Are you sure you want to remove "${name}"? This action cannot be undone.`}
           confirmLabel="Remove"
           cancelLabel="Cancel"
           confirmColor="red"
+          checkboxLabel={canDeleteLocalFile ? 'Also delete the file from this device' : undefined}
+          checkboxChecked={deleteLocalFile}
+          onCheckboxChange={setDeleteLocalFile}
         />
       )}
     </div>

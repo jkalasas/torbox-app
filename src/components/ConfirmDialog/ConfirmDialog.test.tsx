@@ -64,4 +64,28 @@ describe('ConfirmDialog', () => {
     expect(screen.getByRole('button', { name: 'Remove' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
   });
+
+  it('does not render a checkbox without a label', () => {
+    renderDialog();
+
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+  });
+
+  it('renders a checkbox and reports changes', async () => {
+    const onCheckboxChange = vi.fn();
+    const { user } = renderDialog({
+      checkboxLabel: 'Also delete the file from this device',
+      checkboxChecked: false,
+      onCheckboxChange,
+    });
+
+    const checkbox = screen.getByRole('checkbox', {
+      name: 'Also delete the file from this device',
+    });
+    expect(checkbox).not.toBeChecked();
+
+    await user.click(checkbox);
+
+    expect(onCheckboxChange).toHaveBeenCalledWith(true);
+  });
 });

@@ -99,6 +99,16 @@
   white-space: nowrap;
 }
 
+.pathItem {
+  font-size: 0.75rem;
+  color: var(--ink-muted);
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 240px;
+}
+
 .metaMono {
   font-family: var(--font-mono);
 }

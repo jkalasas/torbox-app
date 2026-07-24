@@ -239,4 +239,38 @@ describe('useLocalTransfers', () => {
       paused: false,
     });
   });
+
+  it('removes a transfer and optionally deletes the local file', async () => {
+    mockedInvoke.mockImplementation(async (cmd) => {
+      if (cmd === 'list_downloads') {
+        return [
+          {
+            id: 'local-1',
+            name: 'movie.mkv',
+            status: 'complete',
+            progress: 1,
+            size_bytes: 1000,
+            cloud_download_id: 't-1',
+            destination_path: '/tmp',
+            added_at: 1_700_000_000_000,
+          },
+        ];
+      }
+      return undefined;
+    });
+
+    const { result } = renderHook(() => useLocalTransfers());
+    await waitFor(() => expect(result.current.transfers).toHaveLength(1));
+
+    await act(async () => {
+      await result.current.removeTransfer('local-1', { deleteLocalFile: true });
+    });
+
+    expect(mockedInvoke).toHaveBeenCalledWith('cancel_download', { downloadId: 'local-1' });
+    expect(mockedInvoke).toHaveBeenCalledWith('remove_download', {
+      downloadId: 'local-1',
+      deleteLocalFile: true,
+    });
+    expect(result.current.transfers).toHaveLength(0);
+  });
 });

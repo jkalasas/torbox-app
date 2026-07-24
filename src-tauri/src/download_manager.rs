@@ -492,11 +492,29 @@ impl DownloadManager {
         Ok(())
     }
 
-    pub async fn remove_download(&self, download_id: &str) -> Result<(), String> {
+    pub async fn remove_download(
+        &self,
+        app: &AppHandle,
+        download_id: &str,
+        delete_local_file: bool,
+    ) -> Result<(), String> {
         if let Some(tx) = self.active_downloads.lock().await.remove(download_id) {
             tx.send(true).ok();
         }
         self.queue.remove(download_id).await;
+
+        let download = self
+            .persistence
+            .list_downloads()
+            .ok()
+            .and_then(|list| list.into_iter().find(|d| d.id == download_id));
+
+        if delete_local_file {
+            if let Some(ref download) = download {
+                delete_local_download_file(app, download).await;
+            }
+        }
+
         self.persistence
             .delete_download(download_id)
             .map_err(|e| e.to_string())?;
@@ -592,6 +610,33 @@ struct OpenDest {
     display_path: String,
     /// When set, bytes were staged locally and must be copied into the SAF tree on success.
     saf_publish: Option<SafPublish>,
+}
+
+async fn delete_local_download_file(app: &AppHandle, download: &LocalDownload) {
+    let name = &download.name;
+    let destination = &download.destination_path;
+
+    if crate::saf::is_content_uri(destination) {
+        if let Err(e) = crate::saf::delete_file(app, destination, name).await {
+            log::warn!("Failed to delete SAF file {name}: {e}");
+        }
+        if let Ok(staging) = crate::saf::staging_dir(app) {
+            let staged = staging.join(name);
+            if let Err(e) = tokio::fs::remove_file(&staged).await {
+                if e.kind() != std::io::ErrorKind::NotFound {
+                    log::warn!("Failed to delete staged file {}: {e}", staged.display());
+                }
+            }
+        }
+        return;
+    }
+
+    let path = std::path::Path::new(destination).join(name);
+    if let Err(e) = tokio::fs::remove_file(&path).await {
+        if e.kind() != std::io::ErrorKind::NotFound {
+            log::warn!("Failed to delete {}: {e}", path.display());
+        }
+    }
 }
 
 async fn open_destination(

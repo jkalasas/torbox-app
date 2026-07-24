@@ -41,9 +41,13 @@ pub async fn cancel_download(
 #[tauri::command]
 pub async fn remove_download(
     download_id: String,
+    delete_local_file: Option<bool>,
     manager: State<'_, Arc<DownloadManager>>,
+    app: tauri::AppHandle,
 ) -> Result<(), String> {
-    manager.remove_download(&download_id).await
+    manager
+        .remove_download(&app, &download_id, delete_local_file.unwrap_or(false))
+        .await
 }
 
 #[tauri::command]

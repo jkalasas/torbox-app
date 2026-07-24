@@ -50,6 +50,12 @@ struct CopyFileResponse {
 
 #[cfg(target_os = "android")]
 #[derive(Debug, Deserialize)]
+struct DeleteFileResponse {
+    deleted: bool,
+}
+
+#[cfg(target_os = "android")]
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct OpenWritableFileResponse {
     uri: String,
@@ -78,6 +84,14 @@ struct OpenWritableFileArgs<'a> {
 #[serde(rename_all = "camelCase")]
 struct FolderNameArgs<'a> {
     tree_uri: &'a str,
+}
+
+#[cfg(target_os = "android")]
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DeleteFileArgs<'a> {
+    tree_uri: &'a str,
+    file_name: &'a str,
 }
 
 #[cfg(target_os = "android")]
@@ -227,6 +241,34 @@ pub async fn publish_to_saf(
     {
         let _ = (app, tree_uri, source_path, file_name);
         Err("SAF publish is only available on Android".into())
+    }
+}
+
+pub async fn delete_file(app: &AppHandle, tree_uri: &str, file_name: &str) -> Result<(), String> {
+    if !is_content_uri(tree_uri) {
+        return Err("Not a content URI".into());
+    }
+
+    #[cfg(target_os = "android")]
+    {
+        let saf = android_saf(app)?;
+        let _: DeleteFileResponse = saf
+            .0
+            .run_mobile_plugin_async(
+                "deleteFile",
+                DeleteFileArgs {
+                    tree_uri,
+                    file_name,
+                },
+            )
+            .await
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        let _ = (app, tree_uri, file_name);
+        Err("SAF delete is only available on Android".into())
     }
 }
 

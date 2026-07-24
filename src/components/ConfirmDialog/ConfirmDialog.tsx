@@ -1,4 +1,4 @@
-import { Button, Group, Modal, Stack, Text } from '@mantine/core';
+import { Button, Checkbox, Group, Modal, Stack, Text } from '@mantine/core';
 import classes from './ConfirmDialog.module.css';
 
 export interface ConfirmDialogProps {
@@ -11,6 +11,9 @@ export interface ConfirmDialogProps {
   cancelLabel?: string;
   confirmColor?: string;
   loading?: boolean;
+  checkboxLabel?: string;
+  checkboxChecked?: boolean;
+  onCheckboxChange?: (checked: boolean) => void;
 }
 
 export function ConfirmDialog({
@@ -23,6 +26,9 @@ export function ConfirmDialog({
   cancelLabel = 'Cancel',
   confirmColor = 'red',
   loading = false,
+  checkboxLabel,
+  checkboxChecked = false,
+  onCheckboxChange,
 }: ConfirmDialogProps) {
   return (
     <Modal
@@ -34,6 +40,14 @@ export function ConfirmDialog({
     >
       <Stack gap="md">
         {description && <Text size="sm">{description}</Text>}
+        {checkboxLabel && (
+          <Checkbox
+            label={checkboxLabel}
+            checked={checkboxChecked}
+            onChange={(event) => onCheckboxChange?.(event.currentTarget.checked)}
+            disabled={loading}
+          />
+        )}
         <Group justify="flex-end" gap="sm">
           <Button variant="default" onClick={onClose} disabled={loading}>
             {cancelLabel}

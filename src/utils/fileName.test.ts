@@ -3,6 +3,7 @@ import {
   ensureExtension,
   extensionFromMime,
   fileBasename,
+  formatDisplayPath,
   hasPlausibleExtension,
   resolveFileDownloadName,
   resolveZipDownloadName,
@@ -14,6 +15,36 @@ describe('fileName utils', () => {
       expect(fileBasename('Season 1/Episode.mkv')).toBe('Episode.mkv');
       expect(fileBasename('Episode.mkv')).toBe('Episode.mkv');
       expect(fileBasename('a\\b\\c.txt')).toBe('c.txt');
+    });
+  });
+
+  describe('formatDisplayPath', () => {
+    it('returns filesystem paths unchanged', () => {
+      expect(formatDisplayPath('/home/user/Downloads/TorBox')).toBe('/home/user/Downloads/TorBox');
+    });
+
+    it('pretty-prints Android tree content URIs', () => {
+      expect(
+        formatDisplayPath('content://com.android.externalstorage.documents/tree/primary%3ADownload')
+      ).toBe('Download');
+
+      expect(
+        formatDisplayPath(
+          'content://com.android.externalstorage.documents/tree/primary%3ADownload%2FTorBox'
+        )
+      ).toBe('Download/TorBox');
+    });
+
+    it('pretty-prints Android document content URIs', () => {
+      expect(
+        formatDisplayPath(
+          'content://com.android.externalstorage.documents/tree/primary%3ADownload/document/primary%3ADownload%2Fmovie.mkv'
+        )
+      ).toBe('Download/movie.mkv');
+    });
+
+    it('returns empty for blank input', () => {
+      expect(formatDisplayPath('   ')).toBe('');
     });
   });
 
@@ -66,9 +97,9 @@ describe('fileName utils', () => {
     });
 
     it('adds extension from mime when the name has none', () => {
-      expect(
-        resolveFileDownloadName('Show/S01E01', { mimeType: 'video/x-matroska' })
-      ).toBe('Show/S01E01.mkv');
+      expect(resolveFileDownloadName('Show/S01E01', { mimeType: 'video/x-matroska' })).toBe(
+        'Show/S01E01.mkv'
+      );
     });
 
     it('uses short_name extension when the full name has none', () => {

@@ -42,7 +42,7 @@ export interface UseLocalTransfersReturn {
   ) => Promise<void>;
   pauseTransfer: (id: string) => Promise<void>;
   resumeTransfer: (id: string) => Promise<void>;
-  removeTransfer: (id: string) => Promise<void>;
+  removeTransfer: (id: string, options?: { deleteLocalFile?: boolean }) => Promise<void>;
   retryTransfer: (id: string) => Promise<void>;
   refresh: () => Promise<void>;
   counts: {
@@ -302,15 +302,21 @@ export function useLocalTransfers(): UseLocalTransfersReturn {
     }
   }, []);
 
-  const removeTransfer = useCallback(async (id: string) => {
-    try {
-      await invoke('cancel_download', { downloadId: id });
-      await invoke('remove_download', { downloadId: id });
-      setTransfers((prev) => prev.filter((t) => t.id !== id));
-    } catch (e) {
-      setError(String(e));
-    }
-  }, []);
+  const removeTransfer = useCallback(
+    async (id: string, options?: { deleteLocalFile?: boolean }) => {
+      try {
+        await invoke('cancel_download', { downloadId: id });
+        await invoke('remove_download', {
+          downloadId: id,
+          deleteLocalFile: options?.deleteLocalFile ?? false,
+        });
+        setTransfers((prev) => prev.filter((t) => t.id !== id));
+      } catch (e) {
+        setError(String(e));
+      }
+    },
+    []
+  );
 
   const retryTransfer = useCallback(async (id: string) => {
     try {

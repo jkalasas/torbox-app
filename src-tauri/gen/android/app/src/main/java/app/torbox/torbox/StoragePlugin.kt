@@ -36,6 +36,12 @@ class FolderNameArgs {
   lateinit var treeUri: String
 }
 
+@InvokeArg
+class DeleteFileArgs {
+  lateinit var treeUri: String
+  lateinit var fileName: String
+}
+
 @TauriPlugin
 class StoragePlugin(private val activity: Activity) : Plugin(activity) {
   @Command
@@ -163,6 +169,44 @@ class StoragePlugin(private val activity: Activity) : Plugin(activity) {
       )
     } catch (e: Exception) {
       invoke.reject(e.message ?: "Failed to open writable file")
+    }
+  }
+
+  @Command
+  fun deleteFile(invoke: Invoke) {
+    try {
+      val args = invoke.parseArgs(DeleteFileArgs::class.java)
+      val treeUri = Uri.parse(args.treeUri)
+      ensurePersistedAccess(treeUri)
+
+      val dir =
+        DocumentFile.fromTreeUri(activity, treeUri)
+          ?: run {
+            invoke.reject("Invalid folder URI — pick the folder again in Settings")
+            return
+          }
+
+      val target = dir.findFile(args.fileName)
+      val ret = JSObject()
+      if (target == null) {
+        ret.put("deleted", false)
+        invoke.resolve(ret)
+        return
+      }
+
+      if (!target.delete()) {
+        invoke.reject("Failed to delete ${args.fileName}")
+        return
+      }
+
+      ret.put("deleted", true)
+      invoke.resolve(ret)
+    } catch (e: SecurityException) {
+      invoke.reject(
+        "Lost access to the selected folder. Open Settings and choose the folder again."
+      )
+    } catch (e: Exception) {
+      invoke.reject(e.message ?: "Failed to delete file")
     }
   }
 

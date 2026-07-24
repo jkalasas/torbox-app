@@ -12,7 +12,7 @@ export interface DownloadListProps {
   skeletonCount?: number;
   onPause?: (id: string) => void;
   onResume?: (id: string) => void;
-  onRemove?: (id: string) => void;
+  onRemove?: (id: string, options?: { deleteLocalFile?: boolean }) => void;
   onRetry?: (id: string) => void;
   onDownloadToDevice?: (id: string) => void;
   emptyTitle?: string;
@@ -51,6 +51,7 @@ function mapTransferToRow(t: LocalTransfer): DownloadRowProps {
     errorMessage: t.errorMessage,
     paused: t.paused,
     destinationPath: t.destinationPath,
+    canDeleteLocalFile: true,
   };
 }
 
@@ -124,7 +125,7 @@ function VirtualizedList({
   items: DownloadRowProps[];
   onPause?: (id: string) => void;
   onResume?: (id: string) => void;
-  onRemove?: (id: string) => void;
+  onRemove?: (id: string, options?: { deleteLocalFile?: boolean }) => void;
   onRetry?: (id: string) => void;
   onDownloadToDevice?: (id: string) => void;
   onOpenFiles?: (id: string) => void;

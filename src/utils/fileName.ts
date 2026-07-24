@@ -4,6 +4,28 @@ export function fileBasename(path: string): string {
   return parts[parts.length - 1] ?? path;
 }
 
+export function formatDisplayPath(path: string): string {
+  const trimmed = path.trim();
+  if (!trimmed) {
+    return '';
+  }
+  if (!trimmed.startsWith('content://')) {
+    return trimmed;
+  }
+
+  try {
+    const withoutQuery = trimmed.split(/[?#]/, 1)[0] ?? trimmed;
+    const segments = withoutQuery.split('/').filter((part) => part.length > 0);
+    const last = segments[segments.length - 1] ?? trimmed;
+    const decoded = decodeURIComponent(last);
+    const colon = decoded.lastIndexOf(':');
+    const label = colon >= 0 ? decoded.slice(colon + 1) : decoded;
+    return label || decoded || trimmed;
+  } catch {
+    return trimmed;
+  }
+}
+
 export function hasPlausibleExtension(fileName: string): boolean {
   const base = fileBasename(fileName);
   const dot = base.lastIndexOf('.');
