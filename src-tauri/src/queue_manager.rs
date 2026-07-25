@@ -70,6 +70,8 @@ impl QueueManager {
     pub async fn deactivate(&self, download_id: &str) {
         let mut active = self.active.lock().await;
         active.retain(|id| id != download_id);
+        drop(active);
+        self.notify.notify_waiters();
     }
 
     pub async fn remove(&self, download_id: &str) {
@@ -81,6 +83,11 @@ impl QueueManager {
             let mut active = self.active.lock().await;
             active.retain(|id| id != download_id);
         }
+        self.notify.notify_waiters();
+    }
+
+    pub async fn notify_changed(&self) {
+        self.notify.notify_waiters();
     }
 
     pub async fn queue_position(&self, download_id: &str) -> Option<usize> {

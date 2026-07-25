@@ -322,6 +322,9 @@ impl Persistence {
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let tx = conn.transaction()?;
+        // Explicit child deletes so removal works even if foreign_keys pragma is off.
+        tx.execute("DELETE FROM chunks WHERE download_id=?1", params![id])?;
+        tx.execute("DELETE FROM download_files WHERE download_id=?1", params![id])?;
         tx.execute("DELETE FROM downloads WHERE id=?1", params![id])?;
         tx.commit()?;
         Ok(())

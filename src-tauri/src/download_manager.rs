@@ -428,8 +428,17 @@ impl DownloadManager {
     }
 
     pub async fn pause_download(&self, app: &AppHandle, download_id: &str) -> Result<(), String> {
-        if let Some(tx) = self.active_downloads.lock().await.remove(download_id) {
-            tx.send(true).ok();
+        // Signal only — the running task removes itself when it actually stops.
+        let signaled = {
+            let map = self.active_downloads.lock().await;
+            if let Some(tx) = map.get(download_id) {
+                tx.send(true).ok();
+                true
+            } else {
+                false
+            }
+        };
+        if signaled {
             self.persistence
                 .update_download_status(download_id, &DownloadStatus::Paused, None)
                 .map_err(|e| e.to_string())?;
@@ -495,10 +504,14 @@ impl DownloadManager {
     }
 
     pub async fn cancel_download(&self, app: &AppHandle, download_id: &str) -> Result<(), String> {
-        if let Some(tx) = self.active_downloads.lock().await.remove(download_id) {
-            tx.send(true).ok();
+        {
+            let map = self.active_downloads.lock().await;
+            if let Some(tx) = map.get(download_id) {
+                tx.send(true).ok();
+            }
         }
         self.queue.remove(download_id).await;
+        self.queue.notify_changed().await;
         self.persistence
             .update_download_status(download_id, &DownloadStatus::Paused, None)
             .map_err(|e| e.to_string())?;
@@ -512,17 +525,39 @@ impl DownloadManager {
         download_id: &str,
         delete_local_file: bool,
     ) -> Result<(), String> {
-        if let Some(tx) = self.active_downloads.lock().await.remove(download_id) {
-            tx.send(true).ok();
-        }
-        self.sync_background(app).await;
-        self.queue.remove(download_id).await;
-
         let download = self
             .persistence
             .list_downloads()
-            .ok()
-            .and_then(|list| list.into_iter().find(|d| d.id == download_id));
+            .map_err(|e| e.to_string())?
+            .into_iter()
+            .find(|d| d.id == download_id);
+
+        // Stop the worker if it is running, and wait until it exits so the file
+        // handle is closed before we try to delete bytes on disk.
+        let was_active = {
+            let map = self.active_downloads.lock().await;
+            if let Some(tx) = map.get(download_id) {
+                tx.send(true).ok();
+                true
+            } else {
+                false
+            }
+        };
+        self.queue.remove(download_id).await;
+        self.queue.notify_changed().await;
+
+        if was_active {
+            self.wait_for_inactive(download_id, Duration::from_secs(8))
+                .await;
+            // Safety: drop tracking if the worker ignored cancel.
+            self.active_downloads.lock().await.remove(download_id);
+        }
+        self.sync_background(app).await;
+
+        // Delete the DB row first so a concurrent list/reload cannot resurrect it.
+        self.persistence
+            .delete_download(download_id)
+            .map_err(|e| e.to_string())?;
 
         if delete_local_file {
             if let Some(ref download) = download {
@@ -530,10 +565,28 @@ impl DownloadManager {
             }
         }
 
-        self.persistence
-            .delete_download(download_id)
-            .map_err(|e| e.to_string())?;
+        // Wake the queue processor so remaining jobs can take free slots.
+        self.queue.notify_changed().await;
         Ok(())
+    }
+
+    async fn wait_for_inactive(&self, download_id: &str, timeout: Duration) {
+        let start = std::time::Instant::now();
+        while start.elapsed() < timeout {
+            if !self
+                .active_downloads
+                .lock()
+                .await
+                .contains_key(download_id)
+            {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+        log::warn!(
+            "Timed out waiting for download {download_id} to stop after {}ms",
+            start.elapsed().as_millis()
+        );
     }
 
     pub async fn list_downloads(&self) -> Result<Vec<LocalDownload>, String> {
@@ -637,21 +690,65 @@ async fn delete_local_download_file(app: &AppHandle, download: &LocalDownload) {
         }
         if let Ok(staging) = crate::saf::staging_dir(app) {
             let staged = staging.join(name);
-            if let Err(e) = tokio::fs::remove_file(&staged).await {
-                if e.kind() != std::io::ErrorKind::NotFound {
-                    log::warn!("Failed to delete staged file {}: {e}", staged.display());
-                }
-            }
+            let _ = remove_path_with_retry(&staged).await;
         }
         return;
     }
 
-    let path = std::path::Path::new(destination).join(name);
-    if let Err(e) = tokio::fs::remove_file(&path).await {
-        if e.kind() != std::io::ErrorKind::NotFound {
-            log::warn!("Failed to delete {}: {e}", path.display());
+    let dest = std::path::Path::new(destination);
+    let mut candidates = vec![dest.join(name)];
+    if dest.ends_with(name) {
+        candidates.push(dest.to_path_buf());
+    }
+    if let Ok(canonical) = tokio::fs::canonicalize(dest).await {
+        let joined = canonical.join(name);
+        if !candidates.iter().any(|p| p == &joined) {
+            candidates.push(joined);
         }
     }
+
+    for path in candidates {
+        if remove_path_with_retry(&path).await {
+            log::info!("Deleted local download file {}", path.display());
+            return;
+        }
+    }
+    log::warn!(
+        "Could not delete local file for download {} ({name} in {destination})",
+        download.id
+    );
+}
+
+async fn remove_path_with_retry(path: &std::path::Path) -> bool {
+    if tokio::fs::metadata(path)
+        .await
+        .map(|meta| meta.is_dir())
+        .unwrap_or(false)
+    {
+        return match tokio::fs::remove_dir_all(path).await {
+            Ok(()) => true,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => false,
+            Err(e) => {
+                log::warn!("Failed to delete directory {}: {e}", path.display());
+                false
+            }
+        };
+    }
+
+    for attempt in 0..8u32 {
+        match tokio::fs::remove_file(path).await {
+            Ok(()) => return true,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return false,
+            Err(e) => {
+                if attempt == 7 {
+                    log::warn!("Failed to delete {}: {e}", path.display());
+                    return false;
+                }
+                tokio::time::sleep(Duration::from_millis(50 * (attempt as u64 + 1))).await;
+            }
+        }
+    }
+    false
 }
 
 async fn open_destination(

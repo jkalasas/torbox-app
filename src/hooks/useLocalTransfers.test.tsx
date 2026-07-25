@@ -240,7 +240,49 @@ describe('useLocalTransfers', () => {
     });
   });
 
-  it('removes a transfer and optionally deletes the local file', async () => {
+  it('removes a transfer only after backend succeeds', async () => {
+    let removed = false;
+    mockedInvoke.mockImplementation(async (cmd) => {
+      if (cmd === 'list_downloads') {
+        if (removed) {
+          return [];
+        }
+        return [
+          {
+            id: 'local-1',
+            name: 'movie.mkv',
+            status: 'complete',
+            progress: 1,
+            size_bytes: 1000,
+            cloud_download_id: 't-1',
+            destination_path: '/tmp',
+            added_at: 1_700_000_000_000,
+          },
+        ];
+      }
+      if (cmd === 'remove_download') {
+        removed = true;
+        return undefined;
+      }
+      return undefined;
+    });
+
+    const { result } = renderHook(() => useLocalTransfers());
+    await waitFor(() => expect(result.current.transfers).toHaveLength(1));
+
+    await act(async () => {
+      await result.current.removeTransfer('local-1', { deleteLocalFile: true });
+    });
+
+    expect(mockedInvoke).not.toHaveBeenCalledWith('cancel_download', expect.anything());
+    expect(mockedInvoke).toHaveBeenCalledWith('remove_download', {
+      downloadId: 'local-1',
+      deleteLocalFile: true,
+    });
+    expect(result.current.transfers).toHaveLength(0);
+  });
+
+  it('keeps the transfer visible when remove_download fails', async () => {
     mockedInvoke.mockImplementation(async (cmd) => {
       if (cmd === 'list_downloads') {
         return [
@@ -256,6 +298,9 @@ describe('useLocalTransfers', () => {
           },
         ];
       }
+      if (cmd === 'remove_download') {
+        throw new Error('disk busy');
+      }
       return undefined;
     });
 
@@ -266,11 +311,8 @@ describe('useLocalTransfers', () => {
       await result.current.removeTransfer('local-1', { deleteLocalFile: true });
     });
 
-    expect(mockedInvoke).toHaveBeenCalledWith('cancel_download', { downloadId: 'local-1' });
-    expect(mockedInvoke).toHaveBeenCalledWith('remove_download', {
-      downloadId: 'local-1',
-      deleteLocalFile: true,
-    });
-    expect(result.current.transfers).toHaveLength(0);
+    expect(result.current.transfers).toHaveLength(1);
+    expect(result.current.transfers[0]?.id).toBe('local-1');
+    expect(result.current.error).toContain('disk busy');
   });
 });

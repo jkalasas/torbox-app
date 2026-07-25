@@ -84,16 +84,23 @@ export function useLocalTransfers(): UseLocalTransfersReturn {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const load = useCallback(async (options?: { background?: boolean }) => {
+    const background = options?.background ?? false;
+    if (!background) {
+      setLoading(true);
+      setError(null);
+    }
     try {
       const raw = await invoke<Record<string, unknown>[]>('list_downloads', {});
       setTransfers(raw.map(mapRustToTransfer));
     } catch (e) {
-      setError(String(e));
+      if (!background) {
+        setError(String(e));
+      }
     } finally {
-      setLoading(false);
+      if (!background) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -153,7 +160,6 @@ export function useLocalTransfers(): UseLocalTransfersReturn {
                     status: 'complete',
                     paused: false,
                     progress: 100,
-                    destinationPath: event.payload.path,
                   }
                 : t
             )
@@ -207,7 +213,7 @@ export function useLocalTransfers(): UseLocalTransfersReturn {
           if (!active) {
             return;
           }
-          void load();
+          void load({ background: true });
         })
       );
 
@@ -304,8 +310,8 @@ export function useLocalTransfers(): UseLocalTransfersReturn {
 
   const removeTransfer = useCallback(
     async (id: string, options?: { deleteLocalFile?: boolean }) => {
+      setError(null);
       try {
-        await invoke('cancel_download', { downloadId: id });
         await invoke('remove_download', {
           downloadId: id,
           deleteLocalFile: options?.deleteLocalFile ?? false,
@@ -313,9 +319,10 @@ export function useLocalTransfers(): UseLocalTransfersReturn {
         setTransfers((prev) => prev.filter((t) => t.id !== id));
       } catch (e) {
         setError(String(e));
+        void load({ background: true });
       }
     },
-    []
+    [load]
   );
 
   const retryTransfer = useCallback(async (id: string) => {
