@@ -1,3 +1,4 @@
+mod background;
 mod bandwidth_limiter;
 mod chunked_downloader;
 mod commands;
@@ -6,6 +7,9 @@ mod models;
 mod persistence;
 mod queue_manager;
 mod saf;
+
+#[cfg(desktop)]
+mod tray;
 
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
@@ -90,7 +94,8 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_os::init())
-        .plugin(saf::init());
+        .plugin(saf::init())
+        .plugin(background::init());
 
     #[cfg(desktop)]
     let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
@@ -151,6 +156,10 @@ pub fn run() {
 
             app.manage(manager);
             app.manage(ForceSetup(AtomicBool::new(force_setup_requested())));
+
+            #[cfg(desktop)]
+            tray::setup(app)?;
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -165,6 +174,8 @@ pub fn run() {
             commands::should_force_setup,
             saf::pick_download_folder,
             saf::get_folder_display_name,
+            background::request_background_permissions,
+            background::get_background_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

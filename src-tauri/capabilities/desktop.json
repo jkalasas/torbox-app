@@ -4,5 +4,11 @@
   "description": "Desktop-only permissions",
   "platforms": ["linux", "macOS", "windows"],
   "windows": ["main"],
-  "permissions": ["updater:default"]
+  "permissions": [
+    "updater:default",
+    "core:window:allow-hide",
+    "core:window:allow-show",
+    "core:window:allow-set-focus",
+    "core:window:allow-unminimize"
+  ]
 }

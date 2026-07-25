@@ -124,6 +124,7 @@ impl Persistence {
                 "bandwidth_limit" => settings.bandwidth_limit = value.parse().unwrap_or(0),
                 "notify_on_complete" => settings.notify_on_complete = value == "true",
                 "open_folder_on_complete" => settings.open_folder_on_complete = value == "true",
+                "close_to_tray" => settings.close_to_tray = value == "true",
                 "color_mode" => {
                     settings.color_mode = match value.as_str() {
                         "auto" => ColorMode::Auto,
@@ -159,6 +160,14 @@ impl Persistence {
             (
                 "open_folder_on_complete",
                 if settings.open_folder_on_complete {
+                    "true"
+                } else {
+                    "false"
+                },
+            ),
+            (
+                "close_to_tray",
+                if settings.close_to_tray {
                     "true"
                 } else {
                     "false"
@@ -483,6 +492,7 @@ mod tests {
             bandwidth_limit: 1000,
             notify_on_complete: false,
             open_folder_on_complete: false,
+            close_to_tray: false,
             color_mode: ColorMode::Light,
         };
         persistence.save_settings(&settings).unwrap();
@@ -500,6 +510,7 @@ mod tests {
             bandwidth_limit: 1000,
             notify_on_complete: false,
             open_folder_on_complete: false,
+            close_to_tray: true,
             color_mode: ColorMode::Auto,
         };
         persistence.save_settings(&settings).unwrap();

@@ -36,8 +36,9 @@ pub async fn resume_download(
 pub async fn cancel_download(
     download_id: String,
     manager: State<'_, Arc<DownloadManager>>,
+    app: tauri::AppHandle,
 ) -> Result<(), String> {
-    manager.cancel_download(&download_id).await
+    manager.cancel_download(&app, &download_id).await
 }
 
 #[tauri::command]

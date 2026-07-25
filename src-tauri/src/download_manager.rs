@@ -72,6 +72,11 @@ impl DownloadManager {
         Ok(())
     }
 
+    async fn sync_background(&self, app: &AppHandle) {
+        let active_count = self.active_downloads.lock().await.len();
+        crate::background::sync_with_active_count(app, active_count).await;
+    }
+
     pub async fn start_download(
         self: &Arc<Self>,
         app: AppHandle,
@@ -164,6 +169,7 @@ impl DownloadManager {
             .lock()
             .await
             .insert(download_id.clone(), pause_tx);
+        self.sync_background(&app).await;
 
         // Get download info
         let downloads = self.persistence.list_downloads().unwrap_or_default();
@@ -187,6 +193,7 @@ impl DownloadManager {
                     .ok();
                 self.active_downloads.lock().await.remove(&download_id);
                 self.queue.deactivate(&download_id).await;
+                self.sync_background(&app).await;
                 return Ok(());
             }
         };
@@ -207,6 +214,7 @@ impl DownloadManager {
             .ok();
             self.active_downloads.lock().await.remove(&download_id);
             self.queue.deactivate(&download_id).await;
+            self.sync_background(&app).await;
             return Ok(());
         }
 
@@ -231,6 +239,7 @@ impl DownloadManager {
             .ok();
             self.active_downloads.lock().await.remove(&download_id);
             self.queue.deactivate(&download_id).await;
+            self.sync_background(&app).await;
             return Ok(());
         }
 
@@ -251,6 +260,7 @@ impl DownloadManager {
                     .ok();
                     self.active_downloads.lock().await.remove(&download_id);
                     self.queue.deactivate(&download_id).await;
+                    self.sync_background(&app).await;
                     return Ok(());
                 }
             };
@@ -278,6 +288,7 @@ impl DownloadManager {
                 .ok();
                 self.active_downloads.lock().await.remove(&download_id);
                 self.queue.deactivate(&download_id).await;
+                self.sync_background(&app).await;
                 return Ok(());
             }
         };
@@ -412,6 +423,7 @@ impl DownloadManager {
 
         self.active_downloads.lock().await.remove(&download_id);
         self.queue.deactivate(&download_id).await;
+        self.sync_background(&app).await;
         Ok(())
     }
 
@@ -428,6 +440,7 @@ impl DownloadManager {
                 },
             )
             .ok();
+            self.sync_background(app).await;
             return Ok(());
         }
 
@@ -481,7 +494,7 @@ impl DownloadManager {
         Ok(())
     }
 
-    pub async fn cancel_download(&self, download_id: &str) -> Result<(), String> {
+    pub async fn cancel_download(&self, app: &AppHandle, download_id: &str) -> Result<(), String> {
         if let Some(tx) = self.active_downloads.lock().await.remove(download_id) {
             tx.send(true).ok();
         }
@@ -489,6 +502,7 @@ impl DownloadManager {
         self.persistence
             .update_download_status(download_id, &DownloadStatus::Paused, None)
             .map_err(|e| e.to_string())?;
+        self.sync_background(app).await;
         Ok(())
     }
 
@@ -501,6 +515,7 @@ impl DownloadManager {
         if let Some(tx) = self.active_downloads.lock().await.remove(download_id) {
             tx.send(true).ok();
         }
+        self.sync_background(app).await;
         self.queue.remove(download_id).await;
 
         let download = self

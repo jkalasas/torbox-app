@@ -78,5 +78,6 @@ export interface DownloadSettings {
   bandwidth_limit: number; // KB/s, 0 = unlimited
   notify_on_complete: boolean;
   open_folder_on_complete: boolean;
+  close_to_tray: boolean;
   color_mode: ColorMode;
 }

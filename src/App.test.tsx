@@ -24,6 +24,7 @@ const emptySettings: DownloadSettings = {
   bandwidth_limit: 0,
   notify_on_complete: true,
   open_folder_on_complete: true,
+  close_to_tray: true,
   color_mode: 'dark',
 };
 

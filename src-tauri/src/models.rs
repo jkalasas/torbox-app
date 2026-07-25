@@ -22,6 +22,7 @@ pub struct DownloadSettings {
     pub bandwidth_limit: u64,
     pub notify_on_complete: bool,
     pub open_folder_on_complete: bool,
+    pub close_to_tray: bool,
     pub color_mode: ColorMode,
 }
 
@@ -34,6 +35,7 @@ impl Default for DownloadSettings {
             bandwidth_limit: 0,
             notify_on_complete: true,
             open_folder_on_complete: true,
+            close_to_tray: true,
             color_mode: ColorMode::default(),
         }
     }

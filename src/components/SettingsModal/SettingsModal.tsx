@@ -52,6 +52,11 @@ export function SettingsModal({
   const [folderLabel, setFolderLabel] = useState<string>('');
   const [browseError, setBrowseError] = useState<string | null>(null);
   const [browsing, setBrowsing] = useState(false);
+  const [backgroundStatus, setBackgroundStatus] = useState<{
+    batteryUnrestricted: boolean;
+    notificationsGranted: boolean;
+  } | null>(null);
+  const [requestingBackground, setRequestingBackground] = useState(false);
   const wasOpenRef = useRef(false);
 
   useEffect(() => {
@@ -77,6 +82,30 @@ export function SettingsModal({
       .then(setAppVersion)
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!opened || platform !== 'android') {
+      return;
+    }
+    let cancelled = false;
+    void invoke<{
+      batteryUnrestricted: boolean;
+      notificationsGranted: boolean;
+    }>('get_background_status')
+      .then((status) => {
+        if (!cancelled) {
+          setBackgroundStatus(status);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setBackgroundStatus(null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [opened, platform]);
 
   useEffect(() => {
     let cancelled = false;
@@ -329,10 +358,58 @@ export function SettingsModal({
             label="Open destination folder"
             checked={localSettings.open_folder_on_complete}
             onChange={(e) => update('open_folder_on_complete', e.currentTarget.checked)}
+            mb="xs"
+          />
+        )}
+        {isDesktop && (
+          <Checkbox
+            label="Close to system tray"
+            description="Keep TorBox running in the background when the window is closed"
+            checked={localSettings.close_to_tray}
+            onChange={(e) => update('close_to_tray', e.currentTarget.checked)}
             mb="md"
           />
         )}
         {isMobile && <div style={{ marginBottom: 'var(--mantine-spacing-md)' }} />}
+
+        {isAndroid && (
+          <>
+            <Text size="sm" fw={500} mb="xs">
+              Background downloads
+            </Text>
+            <Text size="xs" c="dimmed" mb="xs">
+              Android needs notification access and unrestricted battery use so transfers continue
+              when TorBox is in the background.
+            </Text>
+            {backgroundStatus && (
+              <Text size="xs" c="dimmed" mb="xs">
+                Notifications: {backgroundStatus.notificationsGranted ? 'allowed' : 'not allowed'} ·
+                Battery: {backgroundStatus.batteryUnrestricted ? 'unrestricted' : 'optimized'}
+              </Text>
+            )}
+            <Button
+              variant="light"
+              size="xs"
+              mb="md"
+              loading={requestingBackground}
+              onClick={() => {
+                setRequestingBackground(true);
+                void invoke('request_background_permissions')
+                  .then(() =>
+                    invoke<{
+                      batteryUnrestricted: boolean;
+                      notificationsGranted: boolean;
+                    }>('get_background_status')
+                  )
+                  .then(setBackgroundStatus)
+                  .catch(() => {})
+                  .finally(() => setRequestingBackground(false));
+              }}
+            >
+              Enable background downloads
+            </Button>
+          </>
+        )}
 
         <Divider mb="md" />
 
