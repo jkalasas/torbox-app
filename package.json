@@ -2,7 +2,7 @@
   "name": "mantine-vite-template",
   "private": true,
   "type": "module",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
@@ -18,7 +18,8 @@
     "test": "bun run typecheck && bun run format:test && bun run lint && bun run vitest && bun run build",
     "storybook": "storybook dev -p 6006",
     "storybook:build": "storybook build",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "tauri:setup": "TORBOX_FORCE_SETUP=1 tauri dev"
   },
   "dependencies": {
     "@mantine/core": "9.3.1",

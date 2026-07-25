@@ -1,8 +1,10 @@
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use tauri::State;
 
 use crate::download_manager::DownloadManager;
 use crate::models::*;
+use crate::ForceSetup;
 
 #[tauri::command]
 pub async fn start_download(
@@ -62,6 +64,12 @@ pub async fn get_settings(
     manager: State<'_, Arc<DownloadManager>>,
 ) -> Result<DownloadSettings, String> {
     manager.load_settings().await
+}
+
+/// Returns whether this launch requested the first-run wizard (`--setup` / `TORBOX_FORCE_SETUP`).
+#[tauri::command]
+pub fn should_force_setup(force_setup: State<'_, ForceSetup>) -> bool {
+    force_setup.0.load(Ordering::Relaxed)
 }
 
 #[tauri::command]

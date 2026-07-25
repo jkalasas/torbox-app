@@ -372,6 +372,15 @@ function mapWebToCloudDownload(w: WebDownloadListData): CloudDownload {
 // Public API
 // ---------------------------------------------------------------------------
 
+/** Validate an API key by fetching the authenticated user profile. */
+export async function validateApiKey(apiKey: string): Promise<void> {
+  const trimmed = apiKey.trim();
+  if (!trimmed) {
+    throw new TorBoxApiError('API key is required', 400);
+  }
+  await apiGet<unknown>(trimmed, 'user/me?settings=false');
+}
+
 /** Fetch all cloud downloads (torrents + web).
  *  If one endpoint fails, the other endpoint's data is still returned so the
  *  UI remains usable during partial API instability. */

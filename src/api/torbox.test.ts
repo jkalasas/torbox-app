@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { controlDownload, fetchDownloads } from './torbox';
+import { controlDownload, fetchDownloads, TorBoxApiError, validateApiKey } from './torbox';
 
 vi.mock('@tauri-apps/plugin-http', () => ({
   fetch: vi.fn(),
@@ -67,6 +67,49 @@ describe('torbox API', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  describe('validateApiKey', () => {
+    it('resolves when the user endpoint succeeds', async () => {
+      mockedFetch.mockResolvedValue(
+        jsonResponse({
+          success: true,
+          error: null,
+          detail: 'ok',
+          data: { id: 1, email: 'user@example.com' },
+        })
+      );
+
+      await expect(validateApiKey('  valid-key  ')).resolves.toBeUndefined();
+
+      expect(mockedFetch).toHaveBeenCalledWith(
+        'https://api.torbox.app/v1/api/user/me?settings=false',
+        expect.objectContaining({
+          headers: { Authorization: 'Bearer valid-key' },
+        })
+      );
+    });
+
+    it('rejects empty keys without calling the network', async () => {
+      await expect(validateApiKey('   ')).rejects.toMatchObject({
+        name: 'TorBoxApiError',
+        status: 400,
+      });
+      expect(mockedFetch).not.toHaveBeenCalled();
+    });
+
+    it('maps auth failures to TorBoxApiError', async () => {
+      mockedFetch.mockResolvedValue(
+        new Response('unauthorized', {
+          status: 403,
+          headers: { 'Content-Type': 'text/plain' },
+        })
+      );
+
+      const error = await validateApiKey('bad-key').catch((err: unknown) => err);
+      expect(error).toBeInstanceOf(TorBoxApiError);
+      expect(error).toMatchObject({ status: 403 });
+    });
   });
 
   describe('controlDownload', () => {

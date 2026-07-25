@@ -7,11 +7,32 @@ mod persistence;
 mod queue_manager;
 mod saf;
 
+use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use tauri::Manager;
 
 use models::DownloadSettings;
 use persistence::Persistence;
+
+/// When true (via `--setup` or `TORBOX_FORCE_SETUP`), the frontend shows the first-run wizard.
+pub struct ForceSetup(pub AtomicBool);
+
+fn force_setup_requested() -> bool {
+    let args: Vec<String> = std::env::args().collect();
+    let from_args = args.iter().any(|arg| arg == "--setup");
+    let from_env = match std::env::var("TORBOX_FORCE_SETUP") {
+        Ok(value) => {
+            let value = value.trim();
+            value == "1" || value.eq_ignore_ascii_case("true") || value.eq_ignore_ascii_case("yes")
+        }
+        Err(_) => false,
+    };
+    let forced = from_args || from_env;
+    if forced {
+        log::info!("Force setup enabled (args={from_args}, env={from_env}, argv={args:?})");
+    }
+    forced
+}
 
 #[cfg(mobile)]
 fn resolve_settings(app: &tauri::App, persistence: &Persistence) -> DownloadSettings {
@@ -129,6 +150,7 @@ pub fn run() {
             });
 
             app.manage(manager);
+            app.manage(ForceSetup(AtomicBool::new(force_setup_requested())));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -140,6 +162,7 @@ pub fn run() {
             commands::list_downloads,
             commands::get_settings,
             commands::update_settings,
+            commands::should_force_setup,
             saf::pick_download_folder,
             saf::get_folder_display_name,
         ])
