@@ -92,11 +92,12 @@ body {
 /* ── Touch-friendly defaults ─────────────────────────────────── */
 
 @media (pointer: coarse) {
-  /* Minimum tap target enforcement for interactive elements */
-  button,
-  [role='button'],
-  a,
-  input,
+  /* Text fields only. Do not set min-height on button/[role=button]/a — that
+     stretches ActionIcons into non-square hit boxes and misaligns compact
+     controls next to inputs. Components set their own 44×44 targets. */
+  input:not([type='checkbox']):not([type='radio']):not([type='hidden']):not([type='range']):not(
+      [type='color']
+    ):not([type='file']),
   select,
   textarea {
     min-height: 44px;

@@ -15,6 +15,7 @@ import { getVersion } from '@tauri-apps/api/app';
 import { invoke } from '@tauri-apps/api/core';
 import { useEffect, useRef, useState } from 'react';
 import type { ColorMode, DownloadSettings } from '../../types/downloads';
+import { openExternalUrl } from '../../utils/openExternal';
 import classes from './SettingsModal.module.css';
 
 type AppPlatform = 'linux' | 'macos' | 'windows' | 'android' | 'ios' | 'unknown';
@@ -290,7 +291,7 @@ export function SettingsModal({
         <Text size="xs" c="dimmed" mb={6}>
           {directoryDescription}
         </Text>
-        <Group gap="xs" mb={isAndroid ? 'xs' : 'md'} wrap="nowrap" align="flex-start">
+        <Group gap="xs" mb={isAndroid ? 'xs' : 'md'} wrap="nowrap" align="center">
           <TextInput
             style={{ flex: 1 }}
             value={directoryValue}
@@ -302,10 +303,9 @@ export function SettingsModal({
           {!isIOS && (
             <Button
               variant="default"
-              size="compact-sm"
               onClick={() => void handleBrowse()}
               loading={browsing}
-              leftSection={<IconFolder size={14} />}
+              leftSection={<IconFolder size={16} stroke={2} />}
             >
               {isAndroid ? 'Choose' : 'Browse'}
             </Button>
@@ -423,7 +423,7 @@ export function SettingsModal({
           variant="subtle"
           size="compact-sm"
           p={0}
-          onClick={() => window.open('https://github.com/jkalasas/torbox-app/releases', '_blank')}
+          onClick={() => void openExternalUrl('https://github.com/jkalasas/torbox-app/releases')}
           style={{ height: 'auto' }}
         >
           View releases on GitHub

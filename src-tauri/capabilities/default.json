@@ -22,6 +22,7 @@
     "local-downloads",
     "process:default",
     "os:default",
+    "opener:default",
     {
       "identifier": "http:default",
       "allow": [

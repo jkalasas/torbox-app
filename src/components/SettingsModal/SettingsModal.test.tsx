@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, userEvent, waitFor } from '../../../test-utils';
 import type { DownloadSettings } from '../../types/downloads';
+import { openExternalUrl } from '../../utils/openExternal';
 import { SettingsModal } from './SettingsModal';
+
+vi.mock('../../utils/openExternal', () => ({
+  openExternalUrl: vi.fn(),
+}));
 
 const baseSettings: DownloadSettings = {
   api_key: '',
@@ -103,5 +108,13 @@ describe('SettingsModal', () => {
     renderModal();
 
     expect(screen.getByRole('textbox', { name: 'Download directory' })).toBeInTheDocument();
+  });
+
+  it('opens GitHub releases externally instead of navigating the app', async () => {
+    const { user } = renderModal();
+
+    await user.click(screen.getByRole('button', { name: 'View releases on GitHub' }));
+
+    expect(openExternalUrl).toHaveBeenCalledWith('https://github.com/jkalasas/torbox-app/releases');
   });
 });

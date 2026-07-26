@@ -11,6 +11,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { useEffect, useState } from 'react';
 import { TorBoxApiError, validateApiKey } from '../../api/torbox';
 import type { DownloadSettings } from '../../types/downloads';
+import { openExternalUrl } from '../../utils/openExternal';
 import { showCustomWindowControls } from '../../utils/platform';
 import { WindowControls } from '../WindowControls/WindowControls';
 import classes from './SetupWizard.module.css';
@@ -277,7 +278,7 @@ export function SetupWizard({ initialSettings, saving, error, onComplete }: Setu
                   variant="subtle"
                   size="compact-sm"
                   p={0}
-                  onClick={() => window.open(TORBOX_SETTINGS_URL, '_blank')}
+                  onClick={() => void openExternalUrl(TORBOX_SETTINGS_URL)}
                   style={{ height: 'auto' }}
                 >
                   Open TorBox settings
@@ -309,7 +310,7 @@ export function SetupWizard({ initialSettings, saving, error, onComplete }: Setu
               <Text component="label" size="sm" fw={500} display="block" mb={6}>
                 Download directory
               </Text>
-              <Group gap="xs" mb={isAndroid ? 'xs' : 'md'} wrap="nowrap" align="flex-start">
+              <Group gap="xs" mb={isAndroid ? 'xs' : 'md'} wrap="nowrap" align="center">
                 <TextInput
                   style={{ flex: 1 }}
                   value={directoryValue}
@@ -321,10 +322,9 @@ export function SetupWizard({ initialSettings, saving, error, onComplete }: Setu
                 {!isIOS && (
                   <Button
                     variant="default"
-                    size="compact-sm"
                     onClick={() => void handleBrowse()}
                     loading={browsing}
-                    leftSection={<IconFolder size={14} />}
+                    leftSection={<IconFolder size={16} stroke={2} />}
                   >
                     {isAndroid ? 'Choose' : 'Browse'}
                   </Button>
