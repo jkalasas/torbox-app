@@ -15,6 +15,11 @@ import { getVersion } from '@tauri-apps/api/app';
 import { invoke } from '@tauri-apps/api/core';
 import { useEffect, useRef, useState } from 'react';
 import type { ColorMode, DownloadSettings } from '../../types/downloads';
+import {
+  getBackgroundStatus,
+  requestBackgroundPermissions,
+  type BackgroundStatus,
+} from '../../utils/backgroundDownloads';
 import { openExternalUrl } from '../../utils/openExternal';
 import classes from './SettingsModal.module.css';
 
@@ -53,11 +58,9 @@ export function SettingsModal({
   const [folderLabel, setFolderLabel] = useState<string>('');
   const [browseError, setBrowseError] = useState<string | null>(null);
   const [browsing, setBrowsing] = useState(false);
-  const [backgroundStatus, setBackgroundStatus] = useState<{
-    batteryUnrestricted: boolean;
-    notificationsGranted: boolean;
-  } | null>(null);
+  const [backgroundStatus, setBackgroundStatus] = useState<BackgroundStatus | null>(null);
   const [requestingBackground, setRequestingBackground] = useState(false);
+  const [backgroundError, setBackgroundError] = useState<string | null>(null);
   const wasOpenRef = useRef(false);
 
   useEffect(() => {
@@ -89,20 +92,11 @@ export function SettingsModal({
       return;
     }
     let cancelled = false;
-    void invoke<{
-      batteryUnrestricted: boolean;
-      notificationsGranted: boolean;
-    }>('get_background_status')
-      .then((status) => {
-        if (!cancelled) {
-          setBackgroundStatus(status);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setBackgroundStatus(null);
-        }
-      });
+    void getBackgroundStatus().then((status) => {
+      if (!cancelled) {
+        setBackgroundStatus(status);
+      }
+    });
     return () => {
       cancelled = true;
     };
@@ -387,22 +381,35 @@ export function SettingsModal({
                 Battery: {backgroundStatus.batteryUnrestricted ? 'unrestricted' : 'optimized'}
               </Text>
             )}
+            {backgroundError && (
+              <Text size="xs" c="red" mb="xs">
+                {backgroundError}
+              </Text>
+            )}
             <Button
               variant="light"
               size="xs"
               mb="md"
               loading={requestingBackground}
               onClick={() => {
+                setBackgroundError(null);
                 setRequestingBackground(true);
-                void invoke('request_background_permissions')
-                  .then(() =>
-                    invoke<{
-                      batteryUnrestricted: boolean;
-                      notificationsGranted: boolean;
-                    }>('get_background_status')
-                  )
-                  .then(setBackgroundStatus)
-                  .catch(() => {})
+                void requestBackgroundPermissions()
+                  .then((status) => {
+                    setBackgroundStatus(status);
+                    if (!status) {
+                      setBackgroundError('Could not update background download permissions.');
+                    }
+                  })
+                  .catch((err) => {
+                    const message =
+                      err instanceof Error
+                        ? err.message
+                        : typeof err === 'string'
+                          ? err
+                          : 'Could not request background permissions.';
+                    setBackgroundError(message);
+                  })
                   .finally(() => setRequestingBackground(false));
               }}
             >

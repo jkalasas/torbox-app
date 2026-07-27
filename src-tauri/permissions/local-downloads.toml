@@ -13,4 +13,6 @@ commands.allow = [
     "should_force_setup",
     "pick_download_folder",
     "get_folder_display_name",
+    "request_background_permissions",
+    "get_background_status",
 ]

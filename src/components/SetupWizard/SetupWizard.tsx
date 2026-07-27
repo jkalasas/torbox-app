@@ -6,20 +6,26 @@ import {
   IconEyeOff,
   IconFolder,
   IconKey,
+  IconPlayerPlay,
 } from '@tabler/icons-react';
 import { invoke } from '@tauri-apps/api/core';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { TorBoxApiError, validateApiKey } from '../../api/torbox';
 import type { DownloadSettings } from '../../types/downloads';
+import {
+  getBackgroundStatus,
+  isBackgroundReady,
+  requestBackgroundPermissions,
+  type BackgroundStatus,
+} from '../../utils/backgroundDownloads';
 import { openExternalUrl } from '../../utils/openExternal';
 import { showCustomWindowControls } from '../../utils/platform';
 import { WindowControls } from '../WindowControls/WindowControls';
 import classes from './SetupWizard.module.css';
 
 type AppPlatform = 'linux' | 'macos' | 'windows' | 'android' | 'ios' | 'unknown';
-type WizardStep = 0 | 1 | 2 | 3;
+type WizardStepId = 'welcome' | 'api' | 'folder' | 'background' | 'done';
 
-const STEP_COUNT = 4;
 const TORBOX_SETTINGS_URL = 'https://torbox.app/settings';
 
 export interface SetupWizardProps {
@@ -49,8 +55,15 @@ function authErrorMessage(err: unknown): string {
   return 'Could not reach TorBox. Check your connection and try again.';
 }
 
+function wizardSteps(isAndroid: boolean): WizardStepId[] {
+  if (isAndroid) {
+    return ['welcome', 'api', 'folder', 'background', 'done'];
+  }
+  return ['welcome', 'api', 'folder', 'done'];
+}
+
 export function SetupWizard({ initialSettings, saving, error, onComplete }: SetupWizardProps) {
-  const [step, setStep] = useState<WizardStep>(0);
+  const [stepIndex, setStepIndex] = useState(0);
   const [apiKey, setApiKey] = useState(initialSettings.api_key);
   const [apiKeyVisible, setApiKeyVisible] = useState(false);
   const [downloadDir, setDownloadDir] = useState(initialSettings.download_dir);
@@ -60,6 +73,8 @@ export function SetupWizard({ initialSettings, saving, error, onComplete }: Setu
   const [browsing, setBrowsing] = useState(false);
   const [stepError, setStepError] = useState<string | null>(null);
   const [browseError, setBrowseError] = useState<string | null>(null);
+  const [backgroundStatus, setBackgroundStatus] = useState<BackgroundStatus | null>(null);
+  const [requestingBackground, setRequestingBackground] = useState(false);
   const customControls = showCustomWindowControls();
 
   useEffect(() => {
@@ -103,6 +118,42 @@ export function SetupWizard({ initialSettings, saving, error, onComplete }: Setu
   const isIOS = platform === 'ios';
   const isMobile = isAndroid || isIOS;
   const isDesktop = platform === 'linux' || platform === 'macos' || platform === 'windows';
+  const steps = useMemo(() => wizardSteps(isAndroid), [isAndroid]);
+  const step = steps[Math.min(stepIndex, steps.length - 1)] ?? 'welcome';
+
+  useEffect(() => {
+    if (step !== 'background') {
+      return;
+    }
+    let cancelled = false;
+    void getBackgroundStatus().then((status) => {
+      if (!cancelled) {
+        setBackgroundStatus(status);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [step]);
+
+  useEffect(() => {
+    setStepIndex((current) => Math.min(current, steps.length - 1));
+  }, [steps.length]);
+
+  const goTo = (next: WizardStepId) => {
+    const index = steps.indexOf(next);
+    if (index >= 0) {
+      setStepIndex(index);
+    }
+  };
+
+  const goBack = () => {
+    setStepIndex((current) => Math.max(0, current - 1));
+  };
+
+  const goNext = () => {
+    setStepIndex((current) => Math.min(steps.length - 1, current + 1));
+  };
 
   const handleBrowse = async () => {
     setBrowseError(null);
@@ -163,11 +214,27 @@ export function SetupWizard({ initialSettings, saving, error, onComplete }: Setu
     setValidating(true);
     try {
       await validateApiKey(apiKey);
-      setStep(2);
+      goTo('folder');
     } catch (err) {
       setStepError(authErrorMessage(err));
     } finally {
       setValidating(false);
+    }
+  };
+
+  const handleEnableBackground = async () => {
+    setStepError(null);
+    setRequestingBackground(true);
+    try {
+      const status = await requestBackgroundPermissions();
+      setBackgroundStatus(status);
+      if (!status) {
+        setStepError('Could not update background download permissions.');
+      }
+    } catch (err) {
+      setStepError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setRequestingBackground(false);
     }
   };
 
@@ -194,7 +261,8 @@ export function SetupWizard({ initialSettings, saving, error, onComplete }: Setu
     ? folderLabel || (downloadDir ? 'Selected folder' : 'App storage (default)')
     : downloadDir;
 
-  const displayError = stepError || (step === 3 ? error : null);
+  const displayError = stepError || (step === 'done' ? error : null);
+  const backgroundReady = isBackgroundReady(backgroundStatus);
 
   return (
     <div className={classes.shell}>
@@ -207,14 +275,14 @@ export function SetupWizard({ initialSettings, saving, error, onComplete }: Setu
 
       <div className={classes.body}>
         <div className={classes.panel}>
-          <div className={classes.steps} aria-label={`Step ${step + 1} of ${STEP_COUNT}`}>
-            {Array.from({ length: STEP_COUNT }, (_, index) => (
+          <div className={classes.steps} aria-label={`Step ${stepIndex + 1} of ${steps.length}`}>
+            {steps.map((id, index) => (
               <span
-                key={index}
+                key={id}
                 className={[
                   classes.stepDot,
-                  index === step ? classes.stepDotActive : '',
-                  index < step ? classes.stepDotDone : '',
+                  index === stepIndex ? classes.stepDotActive : '',
+                  index < stepIndex ? classes.stepDotDone : '',
                 ]
                   .filter(Boolean)
                   .join(' ')}
@@ -223,7 +291,7 @@ export function SetupWizard({ initialSettings, saving, error, onComplete }: Setu
             ))}
           </div>
 
-          {step === 0 && (
+          {step === 'welcome' && (
             <>
               <div className={classes.iconWrapper} aria-hidden="true">
                 <IconCloudDown size={40} stroke={1.5} />
@@ -234,12 +302,12 @@ export function SetupWizard({ initialSettings, saving, error, onComplete }: Setu
                 ready.
               </p>
               <div className={`${classes.actions} ${classes.actionsSingle}`}>
-                <Button onClick={() => setStep(1)}>Continue</Button>
+                <Button onClick={() => goTo('api')}>Continue</Button>
               </div>
             </>
           )}
 
-          {step === 1 && (
+          {step === 'api' && (
             <>
               <div className={classes.iconWrapper} aria-hidden="true">
                 <IconKey size={36} stroke={1.5} />
@@ -286,7 +354,7 @@ export function SetupWizard({ initialSettings, saving, error, onComplete }: Setu
               </div>
               {displayError && <p className={classes.error}>{displayError}</p>}
               <div className={classes.actions}>
-                <Button variant="default" onClick={() => setStep(0)} disabled={validating}>
+                <Button variant="default" onClick={goBack} disabled={validating}>
                   Back
                 </Button>
                 <Button
@@ -300,7 +368,7 @@ export function SetupWizard({ initialSettings, saving, error, onComplete }: Setu
             </>
           )}
 
-          {step === 2 && (
+          {step === 'folder' && (
             <>
               <div className={classes.iconWrapper} aria-hidden="true">
                 <IconFolder size={36} stroke={1.5} />
@@ -339,15 +407,57 @@ export function SetupWizard({ initialSettings, saving, error, onComplete }: Setu
               )}
               {browseError && <p className={classes.error}>{browseError}</p>}
               <div className={classes.actions}>
-                <Button variant="default" onClick={() => setStep(1)}>
+                <Button variant="default" onClick={goBack}>
                   Back
                 </Button>
-                <Button onClick={() => setStep(3)}>Continue</Button>
+                <Button onClick={goNext}>Continue</Button>
               </div>
             </>
           )}
 
-          {step === 3 && (
+          {step === 'background' && (
+            <>
+              <div className={classes.iconWrapper} aria-hidden="true">
+                <IconPlayerPlay size={36} stroke={1.5} />
+              </div>
+              <h1 className={classes.title}>Background downloads</h1>
+              <p className={classes.description}>
+                Android needs notification access and unrestricted battery use so transfers keep
+                going when TorBox is in the background.
+              </p>
+              {backgroundStatus && (
+                <p className={classes.statusLine}>
+                  Notifications: {backgroundStatus.notificationsGranted ? 'allowed' : 'not allowed'}{' '}
+                  · Battery: {backgroundStatus.batteryUnrestricted ? 'unrestricted' : 'optimized'}
+                </p>
+              )}
+              {backgroundReady ? (
+                <p className={classes.readyLine}>Background downloads are enabled.</p>
+              ) : (
+                <div className={classes.field}>
+                  <Button
+                    variant="light"
+                    fullWidth
+                    loading={requestingBackground}
+                    onClick={() => void handleEnableBackground()}
+                  >
+                    Enable background downloads
+                  </Button>
+                </div>
+              )}
+              {displayError && <p className={classes.error}>{displayError}</p>}
+              <div className={classes.actions}>
+                <Button variant="default" onClick={goBack} disabled={requestingBackground}>
+                  Back
+                </Button>
+                <Button onClick={goNext} disabled={requestingBackground}>
+                  {backgroundReady ? 'Continue' : 'Skip for now'}
+                </Button>
+              </div>
+            </>
+          )}
+
+          {step === 'done' && (
             <>
               <div className={classes.iconWrapper} aria-hidden="true">
                 <IconCheck size={36} stroke={1.5} />
@@ -358,7 +468,7 @@ export function SetupWizard({ initialSettings, saving, error, onComplete }: Setu
               </p>
               {displayError && <p className={classes.error}>{displayError}</p>}
               <div className={classes.actions}>
-                <Button variant="default" onClick={() => setStep(2)} disabled={saving}>
+                <Button variant="default" onClick={goBack} disabled={saving}>
                   Back
                 </Button>
                 <Button onClick={() => void handleFinish()} loading={saving}>

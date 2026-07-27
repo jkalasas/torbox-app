@@ -9,12 +9,14 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.util.Log
 import androidx.core.app.NotificationCompat
 
 class DownloadForegroundService : Service() {
   companion object {
     const val CHANNEL_ID = "torbox_downloads"
     const val NOTIFICATION_ID = 4201
+    private const val TAG = "TorBoxDownloads"
   }
 
   override fun onCreate() {
@@ -23,15 +25,21 @@ class DownloadForegroundService : Service() {
   }
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-    val notification = buildNotification()
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-      startForeground(
-        NOTIFICATION_ID,
-        notification,
-        ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
-      )
-    } else {
-      startForeground(NOTIFICATION_ID, notification)
+    try {
+      val notification = buildNotification()
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        startForeground(
+          NOTIFICATION_ID,
+          notification,
+          ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+        )
+      } else {
+        startForeground(NOTIFICATION_ID, notification)
+      }
+    } catch (e: Exception) {
+      Log.e(TAG, "Failed to enter foreground", e)
+      stopSelf()
+      return START_NOT_STICKY
     }
     return START_STICKY
   }
@@ -52,12 +60,13 @@ class DownloadForegroundService : Service() {
     return NotificationCompat.Builder(this, CHANNEL_ID)
       .setContentTitle("TorBox")
       .setContentText("Downloading in the background")
-      .setSmallIcon(R.mipmap.ic_launcher)
+      .setSmallIcon(R.drawable.ic_notification)
       .setOngoing(true)
       .setOnlyAlertOnce(true)
       .setContentIntent(pendingIntent)
       .setCategory(NotificationCompat.CATEGORY_PROGRESS)
       .setPriority(NotificationCompat.PRIORITY_LOW)
+      .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
       .build()
   }
 

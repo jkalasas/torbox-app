@@ -19,7 +19,23 @@ vi.mock('@tauri-apps/plugin-os', () => ({
   platform: vi.fn(async () => 'linux'),
 }));
 
+vi.mock('../../utils/backgroundDownloads', () => ({
+  getBackgroundStatus: vi.fn(async () => ({
+    batteryUnrestricted: false,
+    notificationsGranted: false,
+  })),
+  requestBackgroundPermissions: vi.fn(async () => ({
+    batteryUnrestricted: true,
+    notificationsGranted: true,
+  })),
+  isBackgroundReady: (
+    status: { batteryUnrestricted: boolean; notificationsGranted: boolean } | null
+  ) => Boolean(status?.batteryUnrestricted && status?.notificationsGranted),
+}));
+
+import { platform as getOsPlatform } from '@tauri-apps/plugin-os';
 import { TorBoxApiError, validateApiKey } from '../../api/torbox';
+import { getBackgroundStatus, requestBackgroundPermissions } from '../../utils/backgroundDownloads';
 
 const baseSettings: DownloadSettings = {
   api_key: '',
@@ -146,5 +162,40 @@ describe('SetupWizard', () => {
         })
       );
     });
+  });
+
+  it('shows a background downloads step on Android and can enable it', async () => {
+    vi.mocked(getOsPlatform).mockResolvedValue('android');
+    const mockedValidate = vi.mocked(validateApiKey);
+    mockedValidate.mockResolvedValue(undefined);
+
+    const { user } = renderWizard();
+
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+    await user.type(screen.getByLabelText('API key'), 'android-key');
+    await user.click(screen.getByRole('button', { name: 'Validate & continue' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Download folder' })).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Background downloads' })).toBeInTheDocument();
+    });
+
+    expect(screen.getByLabelText('Step 4 of 5')).toBeInTheDocument();
+    expect(getBackgroundStatus).toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'Enable background downloads' }));
+
+    await waitFor(() => {
+      expect(requestBackgroundPermissions).toHaveBeenCalled();
+      expect(screen.getByText('Background downloads are enabled.')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(screen.getByRole('heading', { name: "You're set" })).toBeInTheDocument();
   });
 });
